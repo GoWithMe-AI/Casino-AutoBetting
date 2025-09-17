@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000" class="Bu_Bv">
+    <circle cx="500" cy="500" r="499" fill="#FFA41B"></circle>
+    <path fill="#000" fill-opacity=".2" d="M866 500a365 365 0 1 1-730 0 365 365 0 0 1 730 0Z"></path>
+    <path fill="#fff" fill-opacity=".6" d="M865 624a385 385 0 0 1-729 0l19-6a365 365 0 0 0 691 0l19 6Zm0-248a385 385 0 0 0-729 0l19 6a365 365 0 0 1 691 0l19-6Z"></path>
+    <path fill="#E1E1E1" d="M620 14a500 500 0 0 0-239 0l18 78a421 421 0 0 1 203 0l18-78Zm183 194c47 49 82 109 101 176l77-24a500 500 0 0 0-120-206l-58 54Zm178 432-77-24c-19 67-54 127-101 176l58 54a500 500 0 0 0 120-206ZM620 986l-18-78a421 421 0 0 1-203 0l-18 78a500 500 0 0 0 239 0ZM140 846l58-54c-47-49-82-109-101-176l-77 24a500 500 0 0 0 120 206ZM20 360l77 24c19-67 54-127 101-176l-58-54C84 212 43 283 20 360Z"></path>
+    <!-- Replace foreignObject with inline text Element -->
+    <text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" style="
+        fill: #fff;
+        font-size: 360px;
+        font-family: Arial, sans-serif;
+        text-shadow: 0 4px 0 rgba(0, 0, 0, .3);">20K</text>
+</svg>

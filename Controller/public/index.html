@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bet Automation Controller</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+    <!-- License Status Bar -->
+    <div id="license-status-bar" style="position: fixed; top: 0; left: 0; right: 0; padding: 0.5rem; text-align: center; font-weight: bold; z-index: 1000; display: none;"></div>
+    
+    <div class="container" style="position: relative;">
+        <!-- License Info in Container Top Right -->
+        <div id="license-info" style="position: absolute; top: 10px; right: 10px; font-size: 0.9rem; padding: 0.5rem 1rem; border-radius: 4px; font-weight: bold; z-index: 1001; max-width: 300px; text-align: center;"></div>
+        
+        <div style="display:flex;justify-content:space-between;align-items:center">
+            <h1>Bet Automation Controller</h1>
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <button id="admin-btn" class="btn-admin" style="display:none">Admin</button>
+              <button id="logout-btn" class="btn-danger">Logout</button>
+            </div>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="status-section">
+            <h2>Connection Status</h2>
+            <div class="status-indicators">
+                <div class="status-item" id="pc1-item">
+                    <span class="status-label" id="pc1-label">PC1:</span>
+                    <span class="status-indicator" id="pc1-status">Disconnected</span>
+                </div>
+                <button id="swap-btn" class="swap-btn" title="Swap order">&#8646;</button>
+                <div class="status-item" id="pc2-item">
+                    <span class="status-label" id="pc2-label">PC2:</span>
+                    <span class="status-indicator" id="pc2-status">Disconnected</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Platform Selection (Hidden - Only Pragmatic) -->
+        <div class="control-section" style="display: none;">
+            <h2>Platform</h2>
+            <div class="switch-wrapper">
+                <img src="assets/logo/evolution_logo.svg" alt="Evolution" class="switch-logo evolution-logo" />
+                <label class="switch">
+                    <input type="checkbox" id="platform-switch">
+                    <span class="slider"></span>
+                </label>
+                <img src="assets/logo/pragmatic_logo.svg" alt="Pragmatic" class="switch-logo pragmatic-logo" />
+            </div>
+        </div>
+
+        <!-- Amount Selection -->
+        <div class="control-section">
+            <h2>Select Amount</h2>
+            <div class="amount-display" id="selected-amount">--</div>
+            <div class="chip-actions">
+                <button id="chip-config-btn" class="chip-config-btn">⚙️ Customize</button>
+            </div>
+            <div class="chip-container" id="chip-container"></div>
+            <div class="chip-summary" id="chip-summary"></div>
+
+            <!-- Chip Selector Modal -->
+            <div class="modal" id="chip-selector-modal">
+                <div class="modal-content">
+                    <h3>Select Chips</h3>
+                    <div class="chip-checkbox-container" id="chip-checkbox-container"></div>
+                    <div class="modal-buttons">
+                        <button id="chip-save-btn" class="modal-save-btn">Save</button>
+                        <button id="chip-cancel-btn" class="modal-cancel-btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Side Selection -->
+        <div class="control-section">
+            <h2>Select Side</h2>
+            <div class="side-container">
+                <button class="side-btn player" id="player-btn">Player</button>
+                <button class="side-btn banker" id="banker-btn">Banker</button>
+            </div>
+            <button class="cancel-all-btn" id="cancel-all">Cancel Bet (Both PCs)</button>
+        </div>
+
+        <!-- Bet Button -->
+        <div class="control-section">
+            <button class="bet-btn" id="place-bet">Place Bet</button>
+            <div class="bet-btn-row">
+                <button class="bet-btn" id="place-bet-pc1">Place Bet (PC1 Only)</button>
+                <button class="bet-btn" id="place-bet-pc2">Place Bet (PC2 Only)</button>
+            </div>
+        </div>
+
+        <!-- Log Section -->
+        <div class="log-section">
+            <h2>Activity Log</h2>
+            <div class="log-container" id="log-container"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

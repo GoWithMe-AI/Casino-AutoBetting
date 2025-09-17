@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1.0" />
+<title>User Admin</title>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  table{width:100%;border-collapse:collapse;margin-top:1rem}
+  th,td{border:1px solid #555;padding:0.6rem;text-align:center}
+  .add-box{margin-top:1rem;display:flex;gap:0.5rem}
+  .add-box input{flex:1;padding:0.5rem;border-radius:6px;border:none}
+  .icon-btn{background:transparent;border:none;color:#f44336;font-size:1.2rem;cursor:pointer}
+  .icon-btn:hover{color:#ff7961}
+  .license-active{color:#4caf50;font-weight:bold}
+  .license-expired{color:#f44336;font-weight:bold}
+  .license-none{color:#ff9800;font-weight:bold}
+  .extend-box{display:flex;gap:0.5rem;align-items:center}
+  .extend-box input{width:80px;padding:0.3rem;border-radius:4px;border:1px solid #555}
+  .extend-btn{background:#4caf50;color:white;border:none;padding:0.3rem 0.6rem;border-radius:4px;cursor:pointer;font-size:0.8rem}
+  .extend-btn:hover{background:#45a049}
+  .extend-btn:disabled{background:#ccc;cursor:not-allowed}
+  .license-info{font-size:0.8rem;margin-top:0.5rem;padding:0.5rem;background:#333;border-radius:4px}
+  .license-info h4{margin:0 0 0.5rem 0;color:#4caf50}
+  .license-info p{margin:0.2rem 0;color:#ccc}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>User Admin</h1>
+  <table id="userTable">
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>License Status</th>
+        <th>License End Date</th>
+        <th>Extend License</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+  <div class="add-box">
+    <input id="newUser" placeholder="username" />
+    <input id="newPass" placeholder="password" type="password" />
+    <button id="addBtn" class="btn-admin">Add</button>
+  </div>
+  <h3 style="margin-top:1.5rem">Change Admin Password</h3>
+  <div class="add-box">
+    <input id="newAdminPass" type="password" placeholder="new password" />
+    <button id="changePassBtn" class="btn-danger" style="flex:1">Update</button>
+  </div>
+  
+  <div class="license-info">
+    <h4>License Management Instructions</h4>
+    <p><strong>Status Colors:</strong></p>
+    <p>🟢 <span class="license-active">Active</span> - License is valid and not expired</p>
+    <p>🔴 <span class="license-expired">Expired</span> - License has expired, user cannot login</p>
+    <p>🟡 <span class="license-none">No License</span> - User has no license assigned</p>
+    <p><strong>Extend License:</strong> Enter number of months and click "Extend" to add time to user's license</p>
+    <p><strong>Note:</strong> Admin user has permanent license and cannot be modified</p>
+  </div>
+  <div style="display:flex;gap:0.5rem;margin-top:1rem">
+    <button id="backBtn" class="btn-admin" style="flex:1">Back</button>
+    <button id="logout" class="btn-danger" style="flex:1">Logout</button>
+  </div>
+</div>
+<script src="admin.js"></script>
+</body>
+</html> 

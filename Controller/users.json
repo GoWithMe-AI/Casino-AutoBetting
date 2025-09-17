@@ -1,0 +1,18 @@
+{
+  "admin": {
+    "passwordHash": "$2a$10$y3CRcYfAM4rGBWqxpGBYN.6wrpTd3rLgPV5gc73dSs/QGfha0apx2",
+    "licenseEndDate": "2099-12-31"
+  },
+  "user1": {
+    "passwordHash": "$2a$10$1kCyMb36DDLaXDitcJKdZ.ypl/.lubLRWyrYq0/XT/4HYOINVqNv2",
+    "licenseEndDate": "2025-10-07"
+  },
+  "user2": {
+    "passwordHash": "$2a$10$yNGSiiVuODjEwLu2L1BNVOJ0x6s2QZviKatdOq.uo2XGLvZVjjd.6",
+    "licenseEndDate": "2025-10-07"
+  },
+  "user3": {
+    "passwordHash": "$2a$10$yNGSiiVuODjEwLu2L1BNVOJ0x6s2QZviKatdOq.uo2XGLvZVjjd.6",
+    "licenseEndDate": "2025-10-07"
+  }
+}

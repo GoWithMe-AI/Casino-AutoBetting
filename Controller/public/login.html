@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Bet Automation – Login</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .login-container{max-width:400px;margin:3rem auto;background:#2a2a2a;padding:2rem;border-radius:10px;text-align:center}
+    .login-container h2{margin-bottom:1rem;color:#e0e0e0}
+    .login-container input{width:100%;padding:0.75rem;margin:0.5rem 0;border:none;border-radius:6px}
+    .login-btn{width:100%;padding:0.9rem;background:#1e88e5;border:none;color:#fff;font-weight:700;border-radius:8px;cursor:pointer;margin-top:1rem}
+    .error-msg{color:#f44336;margin-top:0.5rem;font-size:0.9rem}
+  </style>
+</head>
+<body>
+  <div class="login-container">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username" />
+    <input type="password" id="password" placeholder="Password" />
+    <button id="login-btn" class="login-btn">Login</button>
+    <div id="error" class="error-msg"></div>
+  </div>
+  <script src="login.js"></script>
+</body>
+</html> 

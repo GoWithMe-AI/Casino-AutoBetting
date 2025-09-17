@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "Bet Automation Extension",
+  "version": "1.0.0",
+  "description": "Automated betting extension for casino platforms",
+  "permissions": ["storage", "activeTab", "tabs", "scripting", "notifications"],
+  "host_permissions": [
+    "<all_urls>",
+    "wss://god-bet.up.railway.app/*",
+    "wss://www.god.bet/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_icon": {
+      "16": "icons/not-recording.png",
+      "48": "icons/not-recording.png",
+      "128": "icons/not-recording.png"
+    },
+    "default_popup": "popup.html"
+  },
+  "icons": {
+    "16": "icons/not-recording.png",
+    "48": "icons/not-recording.png",
+    "128": "icons/not-recording.png"
+  }
+}
