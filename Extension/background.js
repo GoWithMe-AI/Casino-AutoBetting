@@ -1,7 +1,7 @@
 // Background service worker for Bet Automation Extension
 
-const WS_URL = 'wss://www.god.bet';
-// const WS_URL = 'ws://localhost:8080/';
+// const WS_URL = 'wss://www.god.bet';
+const WS_URL = 'ws://localhost:8080/';
 
 let accessToken = null;
 let slotOccupied = false; // flag to stop auto reconnect when both slots taken
