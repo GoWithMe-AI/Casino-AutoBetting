@@ -445,7 +445,8 @@ app.post('/api/bet', (req, res) => {
 
   const selectedPC = pc;
   const oppositePC = pc === 'PC1' ? 'PC2' : 'PC1';
-  const oppositeSide = side === 'Player' ? 'Banker' : 'Player';
+  // Both PCs should bet on the same side, not opposite sides
+  const sameSide = side;
 
   let sentCount = 0;
   const room = getRoom(user);
@@ -488,15 +489,15 @@ app.post('/api/bet', (req, res) => {
     platform,
     amount,
     side,
-    oppositeSide
+    sameSide
   };
   
   activeBets.set(room.id, betState);
   console.log(`Started tracking bet ${betId} for room ${room.id}`);
 
-  // Send to both PCs
+  // Send to both PCs with the same side
   sendBetToPC(selectedPC, side);
-  sendBetToPC(oppositePC, oppositeSide);
+  sendBetToPC(oppositePC, sameSide);
 
   if (sentCount === 2) {
     // Set up timeout to handle unresponsive PCs

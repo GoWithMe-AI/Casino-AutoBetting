@@ -14,14 +14,18 @@
 
   // Helper – check if this frame actually contains the betting UI
   function isBettingFrame() {
-    // Check for betting areas with multiple possible selectors
-    const betAreas = document.querySelector('#leftBetTextRoot, #rightBetTextRoot, [data-testid*="player"], [data-testid*="banker"], .player-bet, .banker-bet, .bet-area');
+    // Check for betting areas with multiple possible selectors (Pragmatic + New Platform)
+    const pragmaticBetAreas = document.querySelector('#leftBetTextRoot, #rightBetTextRoot, [data-testid*="player"], [data-testid*="banker"], .player-bet, .banker-bet, .bet-area');
+    const newPlatformBetAreas = document.querySelector('#betBoxPlayer, #betBoxBanker, #betBoxTie, .zone_bet_player, .zone_bet_banker, .zone_bet_tie');
+    const betAreas = pragmaticBetAreas || newPlatformBetAreas;
     
-    // Check for chip buttons with multiple possible selectors
-    const chipButtons = document.querySelector('button[data-testid^="chip-stack-value-"], button[data-testid*="chip"], .chip-button, [class*="chip"]');
+    // Check for chip buttons with multiple possible selectors (Pragmatic + New Platform)
+    const pragmaticChips = document.querySelector('button[data-testid^="chip-stack-value-"], button[data-testid*="chip"], .chip-button, [class*="chip"]');
+    const newPlatformChips = document.querySelector('#chips .chips3d, .list_select_chips3d .chips3d, .chips3d-20, .chips3d-50, .chips3d-100, .chips3d-200, .chips3d-500');
+    const chipButtons = pragmaticChips || newPlatformChips;
     
     // Additional checks for casino-related elements
-    const casinoElements = document.querySelector('[class*="baccarat"], [class*="casino"], [class*="game"], [data-testid*="game"]');
+    const casinoElements = document.querySelector('[class*="baccarat"], [class*="casino"], [class*="game"], [data-testid*="game"], .zone_bet, .main_bottom');
     
     // Debug logging for troubleshooting
     if (window.location.href.includes('casino') || window.location.href.includes('game') || window.location.href.includes('baccarat')) {
@@ -379,11 +383,16 @@
       let bettingInterfaceReady = false;
       
       while (Date.now() - startTime < maxWaitTime) {
-        const chipButtons = document.querySelectorAll('button[data-testid^="chip-stack-value-"]');
-        const playerArea = document.getElementById('leftBetTextRoot');
-        const bankerArea = document.getElementById('rightBetTextRoot');
+        // Check for both Pragmatic and new platform elements
+        const pragmaticChips = document.querySelectorAll('button[data-testid^="chip-stack-value-"]');
+        const newPlatformChips = document.querySelectorAll('#chips .chips3d, .list_select_chips3d .chips3d');
+        const pragmaticPlayerArea = document.getElementById('leftBetTextRoot');
+        const pragmaticBankerArea = document.getElementById('rightBetTextRoot');
+        const newPlatformPlayerArea = document.getElementById('betBoxPlayer');
+        const newPlatformBankerArea = document.getElementById('betBoxBanker');
         
-        if (chipButtons.length > 0 && (playerArea || bankerArea)) {
+        if ((pragmaticChips.length > 0 && (pragmaticPlayerArea || pragmaticBankerArea)) ||
+            (newPlatformChips.length > 0 && (newPlatformPlayerArea || newPlatformBankerArea))) {
           bettingInterfaceReady = true;
           break;
         }
@@ -404,7 +413,7 @@
       }
 
       // Check if betting is currently allowed (not in a game round)
-      const bettingDisabled = document.querySelector('[class*="disabled"], [class*="betting-disabled"], [data-testid*="disabled"]');
+      const bettingDisabled = document.querySelector('[class*="disabled"], [class*="betting-disabled"], [data-testid*="disabled"], .btn_confirm.disabled');
       if (bettingDisabled) {
         chrome.runtime.sendMessage({
           type: 'betError',
@@ -417,101 +426,178 @@
         return;
       }
 
-      // Step 1: Try to select the chip with the exact amount
-      const chipSelector = `button[data-testid="chip-stack-value-${amount}"]`;
-      let chipButton = document.querySelector(chipSelector);
+      // Detect platform type
+      const isPragmatic = document.querySelector('button[data-testid^="chip-stack-value-"]') !== null;
+      const isNewPlatform = document.querySelector('#chips .chips3d') !== null;
 
-      // Helper to get all available chips (enabled only)
-      function getAvailableChips() {
-        const chipButtons = Array.from(
-          document.querySelectorAll('button[data-testid^="chip-stack-value-"]'),
-        ).filter((btn) => !btn.disabled && !btn.hasAttribute('disabled'));
+      console.log(`[BetAutomation] Platform detected - Pragmatic: ${isPragmatic}, New Platform: ${isNewPlatform}`);
 
-        // Deduplicate by chip value – keep the first encountered button for each value
-        const uniqueByValue = new Map();
-        for (const btn of chipButtons) {
-          const match = btn
-            .getAttribute('data-testid')
-            .match(/chip-stack-value-(\d+)/);
-          if (match) {
-            const value = parseInt(match[1], 10);
-            if (!uniqueByValue.has(value)) {
-              uniqueByValue.set(value, { value, btn });
+      // Step 1: Handle chip selection based on platform
+      let chipButton = null;
+      let chipPlan = null;
+
+      if (isPragmatic) {
+        // Pragmatic platform logic
+        const chipSelector = `button[data-testid="chip-stack-value-${amount}"]`;
+        chipButton = document.querySelector(chipSelector);
+
+        // Helper to get all available chips (Pragmatic)
+        function getAvailableChips() {
+          const chipButtons = Array.from(
+            document.querySelectorAll('button[data-testid^="chip-stack-value-"]'),
+          ).filter((btn) => !btn.disabled && !btn.hasAttribute('disabled'));
+
+          const uniqueByValue = new Map();
+          for (const btn of chipButtons) {
+            const match = btn
+              .getAttribute('data-testid')
+              .match(/chip-stack-value-(\d+)/);
+            if (match) {
+              const value = parseInt(match[1], 10);
+              if (!uniqueByValue.has(value)) {
+                uniqueByValue.set(value, { value, btn });
+              }
             }
           }
+
+          return Array.from(uniqueByValue.values()).sort((a, b) => b.value - a.value);
         }
 
-        return Array.from(uniqueByValue.values()).sort((a, b) => b.value - a.value); // Descending
+        if (!chipButton) {
+          const availableChips = getAvailableChips();
+          
+          if (availableChips.length === 0) {
+            chrome.runtime.sendMessage({
+              type: 'betError',
+              message: 'No chip buttons found on the page',
+              platform,
+              amount,
+              side,
+              errorType: 'no_chips_found'
+            });
+            return;
+          }
+          
+          chipPlan = composeChips(amount, availableChips);
+          if (!chipPlan) {
+            const availableValues = availableChips.map(chip => formatAmount(chip.value)).join(', ');
+            chrome.runtime.sendMessage({
+              type: 'betError',
+              message: `Cannot compose amount ${formatAmount(amount)} with available chips: ${availableValues}`,
+              platform,
+              amount,
+              side,
+              errorType: 'cannot_compose_amount',
+              availableChips: availableChips.map(chip => chip.value)
+            });
+            return;
+          }
+        }
+      } else if (isNewPlatform) {
+        // New platform logic
+        const chipSelector = `.chips3d-${amount}`;
+        chipButton = document.querySelector(chipSelector);
+
+        // Helper to get all available chips (New Platform)
+        function getAvailableChips() {
+          const chipButtons = Array.from(
+            document.querySelectorAll('#chips .chips3d, .list_select_chips3d .chips3d'),
+          ).filter((btn) => !btn.classList.contains('disabled'));
+
+          const uniqueByValue = new Map();
+          for (const btn of chipButtons) {
+            const match = btn.className.match(/chips3d-(\d+)/);
+            if (match) {
+              const value = parseInt(match[1], 10);
+              if (!uniqueByValue.has(value)) {
+                uniqueByValue.set(value, { value, btn });
+              }
+            }
+          }
+
+          return Array.from(uniqueByValue.values()).sort((a, b) => b.value - a.value);
+        }
+
+        if (!chipButton) {
+          const availableChips = getAvailableChips();
+          
+          if (availableChips.length === 0) {
+            chrome.runtime.sendMessage({
+              type: 'betError',
+              message: 'No chip buttons found on the page',
+              platform,
+              amount,
+              side,
+              errorType: 'no_chips_found'
+            });
+            return;
+          }
+          
+          chipPlan = composeChips(amount, availableChips);
+          if (!chipPlan) {
+            const availableValues = availableChips.map(chip => formatAmount(chip.value)).join(', ');
+            chrome.runtime.sendMessage({
+              type: 'betError',
+              message: `Cannot compose amount ${formatAmount(amount)} with available chips: ${availableValues}`,
+              platform,
+              amount,
+              side,
+              errorType: 'cannot_compose_amount',
+              availableChips: availableChips.map(chip => chip.value)
+            });
+            return;
+          }
+        }
+      } else {
+        chrome.runtime.sendMessage({
+          type: 'betError',
+          message: 'Unsupported platform - neither Pragmatic nor new platform detected',
+          platform,
+          amount,
+          side,
+          errorType: 'unsupported_platform'
+        });
+        return;
       }
 
       // Helper to compose amount using available chips (dynamic programming)
       function composeChips(target, chips) {
-        // dp[i] will store the combination to reach amount i, or null if not possible
         const dp = Array(target + 1).fill(null);
         dp[0] = [];
         for (let i = 1; i <= target; i++) {
           for (const chip of chips) {
             if (i - chip.value >= 0 && dp[i - chip.value] !== null) {
               dp[i] = dp[i - chip.value].concat([chip.value]);
-              break; // Stop at first found (any valid solution)
+              break;
             }
           }
         }
         if (!dp[target]) return null;
-        // Count occurrences of each chip value
         const counts = {};
         for (const v of dp[target]) counts[v] = (counts[v] || 0) + 1;
-        // Map back to chip objects and counts
         return chips
           .map(chip => counts[chip.value] ? { chip, count: counts[chip.value] } : null)
           .filter(Boolean);
       }
 
-      let chipPlan = null;
-      if (!chipButton) {
-        // Try to compose the amount using available chips
-        const availableChips = getAvailableChips();
-        
-        if (availableChips.length === 0) {
-          chrome.runtime.sendMessage({
-            type: 'betError',
-            message: 'No chip buttons found on the page',
-            platform,
-            amount,
-            side,
-            errorType: 'no_chips_found'
-          });
-          return;
+      // Step 2: Find the bet area based on platform
+      let betArea;
+      if (isPragmatic) {
+        // Pragmatic platform bet areas
+        if (side === 'Player') {
+          betArea = document.getElementById('leftBetTextRoot');
+        } else if (side === 'Banker') {
+          betArea = document.getElementById('rightBetTextRoot');
         }
-        
-        chipPlan = composeChips(amount, availableChips);
-        if (!chipPlan) {
-          const availableValues = availableChips.map(chip => formatAmount(chip.value)).join(', ');
-          chrome.runtime.sendMessage({
-            type: 'betError',
-            message: `Cannot compose amount ${formatAmount(amount)} with available chips: ${availableValues}`,
-            platform,
-            amount,
-            side,
-            errorType: 'cannot_compose_amount',
-            availableChips: availableChips.map(chip => chip.value)
-          });
-          return;
+      } else if (isNewPlatform) {
+        // New platform bet areas
+        if (side === 'Player') {
+          betArea = document.getElementById('betBoxPlayer');
+        } else if (side === 'Banker') {
+          betArea = document.getElementById('betBoxBanker');
         }
-        // Log the chip composition plan
-        console.log(
-          `[BetAutomation] Chip plan for ${amount}:`,
-          chipPlan.map(({ chip, count }) => ({ value: chip.value, count })),
-        );
       }
 
-      // Step 2: Find the bet area
-      let betArea;
-      if (side === 'Player') {
-        betArea = document.getElementById('leftBetTextRoot');
-      } else if (side === 'Banker') {
-        betArea = document.getElementById('rightBetTextRoot');
-      }
       if (!betArea) {
         // Try alternative selectors for bet areas
         const alternativeSelectors = {
@@ -519,13 +605,15 @@
             '[data-testid="player-bet-area"]',
             '.player-bet-area',
             '.left-bet-area',
-            '[data-side="player"]'
+            '[data-side="player"]',
+            '.zone_bet_player'
           ],
           'Banker': [
             '[data-testid="banker-bet-area"]',
             '.banker-bet-area',
             '.right-bet-area',
-            '[data-side="banker"]'
+            '[data-side="banker"]',
+            '.zone_bet_banker'
           ]
         };
         
@@ -538,12 +626,12 @@
         if (!betArea) {
           chrome.runtime.sendMessage({
             type: 'betError',
-            message: `Bet area not found for ${side}. Tried: leftBetTextRoot/rightBetTextRoot and alternative selectors`,
+            message: `Bet area not found for ${side}. Tried platform-specific and alternative selectors`,
             platform,
             amount,
             side,
             errorType: 'bet_area_not_found',
-            triedSelectors: ['leftBetTextRoot', 'rightBetTextRoot', ...selectors]
+            triedSelectors: ['leftBetTextRoot', 'rightBetTextRoot', 'betBoxPlayer', 'betBoxBanker', ...selectors]
           });
           return;
         }
@@ -555,8 +643,15 @@
           // Exact chip exists, use original logic
           console.log(`[BetAutomation] About to click chip: ${amount}`);
           
-          // Check if chip is enabled
-          if (chipButton.disabled || chipButton.hasAttribute('disabled')) {
+          // Check if chip is enabled (different logic for different platforms)
+          let isDisabled = false;
+          if (isPragmatic) {
+            isDisabled = chipButton.disabled || chipButton.hasAttribute('disabled');
+          } else if (isNewPlatform) {
+            isDisabled = chipButton.classList.contains('disabled') || chipButton.hasAttribute('disabled');
+          }
+          
+          if (isDisabled) {
             chrome.runtime.sendMessage({
               type: 'betError',
               message: `Chip ${formatAmount(amount)} is disabled`,
@@ -579,8 +674,15 @@
         } else if (chipPlan) {
           // Compose using multiple chips
           for (const { chip, count } of chipPlan) {
-            // Check if chip is enabled
-            if (chip.btn.disabled || chip.btn.hasAttribute('disabled')) {
+            // Check if chip is enabled (different logic for different platforms)
+            let isDisabled = false;
+            if (isPragmatic) {
+              isDisabled = chip.btn.disabled || chip.btn.hasAttribute('disabled');
+            } else if (isNewPlatform) {
+              isDisabled = chip.btn.classList.contains('disabled') || chip.btn.hasAttribute('disabled');
+            }
+            
+            if (isDisabled) {
               chrome.runtime.sendMessage({
                 type: 'betError',
                 message: `Chip ${formatAmount(chip.value)} is disabled`,
