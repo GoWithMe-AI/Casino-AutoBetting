@@ -420,7 +420,7 @@ def load_config() -> Config:
     server_config = {
         'controller': {
             'http_url': 'http://localhost:3000',
-            'ws_url': 'http://localhost:8080'
+            'ws_url': 'ws://localhost:8080'
         }
     }
     return Config(
