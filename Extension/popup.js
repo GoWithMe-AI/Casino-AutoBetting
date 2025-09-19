@@ -24,7 +24,7 @@ document.getElementById('login').addEventListener('click', async () => {
   err.textContent='';
   if(!u||!p){err.textContent='Enter credentials';return;}
   try{
-    const r=await fetch('http://localhost:3000/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const r=await fetch('https://absolutely-stirring-racer.ngrok-free.app/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
     // const r=await fetch('https://www.god.bet/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
     const d=await r.json();
     if(!d.success){err.textContent=d.message||'Login failed';return;}

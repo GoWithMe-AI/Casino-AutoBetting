@@ -1,0 +1,1 @@
+ngrok start --config=config_bet_socket.yml --all

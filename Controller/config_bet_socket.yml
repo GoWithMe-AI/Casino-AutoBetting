@@ -1,0 +1,8 @@
+version: 2
+authtoken: 2z4fLlF9Jyl4Flz4a04GNtbFrjW_6GJGYe78H47unTU53xT2o
+region: us
+tunnels:
+  web:
+    proto: http
+    addr: 8080
+    hostname: quality-crappie-painfully.ngrok-free.app

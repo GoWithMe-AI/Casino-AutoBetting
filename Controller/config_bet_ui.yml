@@ -1,0 +1,8 @@
+version: 2
+authtoken: 2z4dH5YTvNV3RwxcRYO9S6zYH7z_3oLDHnnQUYW6kXiCfcNKR
+region: us
+tunnels:
+  web:
+    proto: http
+    addr: 3000
+    hostname: absolutely-stirring-racer.ngrok-free.app

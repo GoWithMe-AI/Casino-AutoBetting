@@ -419,8 +419,8 @@ class BetAutomationApp:
 def load_config() -> Config:
     server_config = {
         'controller': {
-            'http_url': 'http://localhost:3000',
-            'ws_url': 'ws://localhost:8080'
+            'http_url': 'https://absolutely-stirring-racer.ngrok-free.app',
+            'ws_url': 'wss://quality-crappie-painfully.ngrok-free.app'
         }
     }
     return Config(
