@@ -279,9 +279,92 @@ wss.on('connection', (ws, req) => {
         }
       }
 
+      // Handle chip clicked
+      if (data.type === 'chipClicked') {
+        console.log(`Chip clicked on ${data.pc}: ${data.message}`);
+        
+        // Broadcast chip click to status listeners
+        room.statusListeners.forEach((listener) => {
+          if (listener.readyState === WebSocket.OPEN) {
+            listener.send(
+              JSON.stringify({
+                type: 'chipClicked',
+                pc: data.pc,
+                message: data.message,
+                platform: data.platform,
+                amount: data.amount,
+                side: data.side,
+                timestamp: new Date().toISOString()
+              })
+            );
+          }
+        });
+      }
+
+      // Handle bet area clicked
+      if (data.type === 'betAreaClicked') {
+        console.log(`Bet area clicked on ${data.pc}: ${data.message}`);
+        
+        // Broadcast bet area click to status listeners
+        room.statusListeners.forEach((listener) => {
+          if (listener.readyState === WebSocket.OPEN) {
+            listener.send(
+              JSON.stringify({
+                type: 'betAreaClicked',
+                pc: data.pc,
+                message: data.message,
+                platform: data.platform,
+                amount: data.amount,
+                side: data.side,
+                timestamp: new Date().toISOString()
+              })
+            );
+          }
+        });
+      }
+
+      // Handle confirm button clicked
+      if (data.type === 'confirmClicked') {
+        console.log(`Confirm button clicked on ${data.pc}: ${data.message}`);
+        
+        // Broadcast confirm click to status listeners
+        room.statusListeners.forEach((listener) => {
+          if (listener.readyState === WebSocket.OPEN) {
+            listener.send(
+              JSON.stringify({
+                type: 'confirmClicked',
+                pc: data.pc,
+                message: data.message,
+                platform: data.platform,
+                amount: data.amount,
+                side: data.side,
+                timestamp: new Date().toISOString()
+              })
+            );
+          }
+        });
+      }
+
       // Handle bet success
       if (data.type === 'betSuccess') {
         console.log(`Bet success from ${data.pc}:`, data);
+        
+        // Broadcast bet success to all status listeners
+        room.statusListeners.forEach((listener) => {
+          if (listener.readyState === WebSocket.OPEN) {
+            listener.send(
+              JSON.stringify({
+                type: 'betSuccess',
+                pc: data.pc,
+                message: `Bet placed successfully on ${data.pc}`,
+                platform: data.platform,
+                amount: data.amount,
+                side: data.side,
+                timestamp: new Date().toISOString()
+              })
+            );
+          }
+        });
         
         // Handle bet success for simultaneous betting
         const activeBet = activeBets.get(room.id);
@@ -297,8 +380,36 @@ wss.on('connection', (ws, req) => {
             // Both PCs have completed (success or failure)
             if (pc1Status === 'success' && pc2Status === 'success') {
               console.log(`Both PCs successfully placed bets for ${activeBet.betId}`);
+              
+              // Broadcast completion to status listeners
+              room.statusListeners.forEach((listener) => {
+                if (listener.readyState === WebSocket.OPEN) {
+                  listener.send(
+                    JSON.stringify({
+                      type: 'betCompleted',
+                      message: 'Both PCs successfully placed bets',
+                      betId: activeBet.betId,
+                      timestamp: new Date().toISOString()
+                    })
+                  );
+                }
+              });
             } else {
               console.log(`Bet completed with mixed results: PC1=${pc1Status}, PC2=${pc2Status}`);
+              
+              // Broadcast mixed results to status listeners
+              room.statusListeners.forEach((listener) => {
+                if (listener.readyState === WebSocket.OPEN) {
+                  listener.send(
+                    JSON.stringify({
+                      type: 'betCompleted',
+                      message: `Bet completed with mixed results: PC1=${pc1Status}, PC2=${pc2Status}`,
+                      betId: activeBet.betId,
+                      timestamp: new Date().toISOString()
+                    })
+                  );
+                }
+              });
             }
             
             // Clean up the bet tracking

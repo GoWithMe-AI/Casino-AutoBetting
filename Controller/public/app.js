@@ -331,6 +331,24 @@ function connectStatusWebSocket() {
         case 'bet_placement_failed':
           userMessage = `${data.pc}: Bet placement failed - please try again`;
           break;
+        case 'insufficient_balance':
+          userMessage = `${data.pc}: Insufficient balance - cannot place bet`;
+          break;
+        case 'bet_limit_exceeded':
+          userMessage = `${data.pc}: Bet limit exceeded - amount too high or too low`;
+          break;
+        case 'betting_timeout':
+          userMessage = `${data.pc}: Betting timeout - please try again`;
+          break;
+        case 'pragmatic_error':
+          userMessage = `${data.pc}: Pragmatic game error - ${data.message}`;
+          break;
+        case 'new_platform_error':
+          userMessage = `${data.pc}: Game error - ${data.message}`;
+          break;
+        case 'not_betting_time':
+          userMessage = `${data.pc}: Not betting time - ${data.message}`;
+          break;
         default:
           userMessage = `${data.pc}: ${data.message}`;
       }
@@ -359,6 +377,21 @@ function connectStatusWebSocket() {
       
       // Show a brief success notification
       showSuccessNotification(`${data.pc}: Bet placed successfully`);
+    } else if (data.type === 'betCompleted') {
+      // Handle bet completion (both PCs finished)
+      addLog(`Bet completed: ${data.message}`, 'info');
+      
+      // Show completion notification
+      showSuccessNotification(`Bet completed: ${data.message}`);
+    } else if (data.type === 'chipClicked') {
+      // Handle chip click notification
+      addLog(`${data.pc}: ${data.message}`, 'info');
+    } else if (data.type === 'betAreaClicked') {
+      // Handle bet area click notification
+      addLog(`${data.pc}: ${data.message}`, 'info');
+    } else if (data.type === 'confirmClicked') {
+      // Handle confirm button click notification
+      addLog(`${data.pc}: ${data.message}`, 'info');
     }
   };
 

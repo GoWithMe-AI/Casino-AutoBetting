@@ -209,8 +209,60 @@
     }
   });
 
-  // Function to simulate a more realistic click
+  // Function to add visual click effect
+  function addClickEffect(element) {
+    const rect = element.getBoundingClientRect();
+    const effect = document.createElement('div');
+    effect.style.cssText = `
+      position: fixed;
+      left: ${rect.left + rect.width / 2}px;
+      top: ${rect.top + rect.height / 2}px;
+      width: 0;
+      height: 0;
+      border-radius: 50%;
+      background: rgba(0, 255, 0, 0.6);
+      pointer-events: none;
+      z-index: 10000;
+      transform: translate(-50%, -50%);
+      animation: clickEffect 0.6s ease-out forwards;
+    `;
+    
+    // Add CSS animation if not already added
+    if (!document.querySelector('#click-effect-styles')) {
+      const style = document.createElement('style');
+      style.id = 'click-effect-styles';
+      style.textContent = `
+        @keyframes clickEffect {
+          0% {
+            width: 0;
+            height: 0;
+            opacity: 1;
+          }
+          100% {
+            width: 40px;
+            height: 40px;
+            opacity: 0;
+          }
+        }
+      `;
+      document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(effect);
+    
+    // Remove effect after animation
+    setTimeout(() => {
+      if (effect.parentNode) {
+        effect.parentNode.removeChild(effect);
+      }
+    }, 600);
+  }
+
+  // Function to simulate a more realistic click with visual effect
   function simulateClick(element) {
+    // Add visual click effect
+    addClickEffect(element);
+    
     // Method 1: Try regular click first
     try {
       element.click();
@@ -307,6 +359,208 @@
       return rootElement;
     }
     return null;
+  }
+
+  // Function to check if it's betting time
+  function checkBettingTime(isPragmatic, isNewPlatform) {
+    if (isPragmatic) {
+      // Pragmatic platform - minimal validation to avoid breaking existing logic
+      // Only check for obvious betting disabled states
+      const bettingDisabled = document.querySelector('[class*="betting-disabled"], [data-testid*="betting-disabled"]');
+      if (bettingDisabled) {
+        return 'Betting is disabled - game in progress';
+      }
+      
+      // For Pragmatic, let the game handle betting validation
+      // Don't interfere with existing working logic
+      return true; // Always allow betting on Pragmatic
+    } else if (isNewPlatform) {
+      // New platform - strict betting time validation
+      const bettingDisabled = document.querySelector('[class*="betting-disabled"], [class*="game-in-progress"], [id*="betting-disabled"], [id*="game-in-progress"]');
+      if (bettingDisabled) {
+        return 'Betting is disabled - game in progress';
+      }
+      
+      // Check for countdown timers - updated for actual HTML structure
+      const countdown = document.querySelector('#countdown, #countdownTime, [id*="countdown"], [class*="countdown"]');
+      if (countdown) {
+        console.log(`[BetAutomation] Found countdown element:`, countdown);
+        
+        const countdownTime = document.querySelector('#countdownTime p');
+        if (countdownTime) {
+          const countdownText = (countdownTime.textContent || countdownTime.innerText || '').trim();
+          console.log(`[BetAutomation] Countdown text: "${countdownText}"`);
+          
+          // Check if countdown contains a valid number
+          const countdownNumber = parseInt(countdownText);
+          
+          // If it's not a number or is NaN, it's not betting time
+          if (isNaN(countdownNumber) || countdownText === '' || countdownText === null) {
+            return 'Not betting time - countdown not showing valid number';
+          }
+          
+          // If countdown is 0 or negative, betting time has ended
+          if (countdownNumber <= 0) {
+            return 'Betting time has ended - countdown reached 0';
+          }
+          
+          // If countdown is very low (1-3 seconds), warn but allow betting
+          if (countdownNumber <= 3) {
+            console.log(`[BetAutomation] Warning: Countdown is very low (${countdownNumber} seconds)`);
+          }
+          
+          console.log(`[BetAutomation] Betting time confirmed - countdown: ${countdownNumber} seconds`);
+        } else {
+          console.log(`[BetAutomation] CountdownTime p element not found`);
+          return 'Not betting time - countdown element not found';
+        }
+      } else {
+        console.log(`[BetAutomation] No countdown element found`);
+        return 'Not betting time - no countdown element found';
+      }
+      
+      // Check if chips are disabled
+      const disabledChips = document.querySelectorAll('#chips .chips3d.disabled, .list_select_chips3d .chips3d.disabled');
+      if (disabledChips.length > 0) {
+        return 'Chips are disabled - not betting time';
+      }
+      
+      // Check for betting phase indicators
+      const bettingPhase = document.querySelector('[class*="betting-phase"], [class*="place-bet"], [id*="betting-phase"]');
+      if (!bettingPhase) {
+        // Look for game phase indicators that might indicate non-betting time
+        const gamePhase = document.querySelector('[class*="game-phase"], [class*="result-phase"], [class*="dealing-phase"]');
+        if (gamePhase) {
+          return 'Not betting time - game is in progress or showing results';
+        }
+      }
+      
+      return true; // Betting time confirmed
+    }
+    
+    return 'Unknown platform - cannot determine betting time';
+  }
+
+  // Function to check for betting errors after bet placement
+  function checkForBettingErrors() {
+    // Common error selectors for both platforms
+    const errorSelectors = [
+      // General error messages
+      '[class*="error"]',
+      '[class*="Error"]',
+      '[data-testid*="error"]',
+      '[class*="alert"]',
+      '[class*="warning"]',
+      '[class*="message"]',
+      '[class*="notification"]',
+      
+      // Specific error types
+      '[class*="balance"]',
+      '[class*="insufficient"]',
+      '[class*="funds"]',
+      '[class*="limit"]',
+      '[class*="maximum"]',
+      '[class*="minimum"]',
+      '[class*="betting-disabled"]',
+      '[class*="game-in-progress"]',
+      
+      // Toast/notification messages
+      '.toast',
+      '.notification',
+      '.alert',
+      '.message',
+      '.popup',
+      '.modal'
+    ];
+    
+    // Check for error messages
+    for (const selector of errorSelectors) {
+      const errorElements = document.querySelectorAll(selector);
+      for (const element of errorElements) {
+        const text = (element.textContent || element.innerText || '').trim();
+        if (text && text.length > 0 && text.length < 200) { // Reasonable error message length
+          // Check if it's actually an error message (not just any text)
+          const lowerText = text.toLowerCase();
+          
+          // Common error keywords
+          const errorKeywords = [
+            'balance', 'insufficient', 'funds', 'not enough', 'low balance',
+            'limit', 'maximum', 'minimum', 'exceeded', 'too high', 'too low',
+            'disabled', 'not available', 'betting closed', 'game in progress',
+            'error', 'failed', 'invalid', 'rejected', 'denied', 'blocked',
+            'timeout', 'expired', 'ended', 'finished', 'complete'
+          ];
+          
+          const hasErrorKeyword = errorKeywords.some(keyword => lowerText.includes(keyword));
+          
+          if (hasErrorKeyword) {
+            console.log(`[BetAutomation] Found error message: "${text}"`);
+            
+            // Categorize the error type
+            let errorType = 'betting_error';
+            if (lowerText.includes('balance') || lowerText.includes('insufficient') || lowerText.includes('funds')) {
+              errorType = 'insufficient_balance';
+            } else if (lowerText.includes('limit') || lowerText.includes('maximum') || lowerText.includes('minimum')) {
+              errorType = 'bet_limit_exceeded';
+            } else if (lowerText.includes('disabled') || lowerText.includes('not available')) {
+              errorType = 'betting_disabled';
+            } else if (lowerText.includes('timeout') || lowerText.includes('expired')) {
+              errorType = 'betting_timeout';
+            }
+            
+            return {
+              hasError: true,
+              message: text,
+              errorType: errorType,
+              details: {
+                selector: selector,
+                element: element.tagName,
+                className: element.className
+              }
+            };
+          }
+        }
+      }
+    }
+    
+    // Check for specific platform error indicators
+    const isPragmatic = document.querySelector('button[data-testid^="chip-stack-value-"]') !== null;
+    const isNewPlatform = document.querySelector('#chips .chips3d') !== null;
+    
+    if (isPragmatic) {
+      // Pragmatic-specific error checks
+      const pragmaticErrors = document.querySelectorAll('[data-testid*="error"], [class*="error-message"]');
+      for (const error of pragmaticErrors) {
+        const text = (error.textContent || error.innerText || '').trim();
+        if (text) {
+          return {
+            hasError: true,
+            message: text,
+            errorType: 'pragmatic_error',
+            details: { platform: 'pragmatic' }
+          };
+        }
+      }
+    } else if (isNewPlatform) {
+      // New platform-specific error checks
+      const newPlatformErrors = document.querySelectorAll('[class*="error"], [id*="error"], .alert, .message');
+      for (const error of newPlatformErrors) {
+        const text = (error.textContent || error.innerText || '').trim();
+        if (text && text.length > 0 && text.length < 200) {
+          const lowerText = text.toLowerCase();
+          if (lowerText.includes('error') || lowerText.includes('failed') || lowerText.includes('invalid')) {
+            return {
+              hasError: true,
+              message: text,
+              errorType: 'new_platform_error',
+              details: { platform: 'new_platform' }
+            };
+          }
+        }
+      }
+    }
+    
+    return { hasError: false };
   }
 
   // Function to place a bet
@@ -412,23 +666,26 @@
         return;
       }
 
-      // Check if betting is currently allowed (not in a game round)
-      const bettingDisabled = document.querySelector('[class*="disabled"], [class*="betting-disabled"], [data-testid*="disabled"], .btn_confirm.disabled');
-      if (bettingDisabled) {
+      // Detect platform type first
+      const isPragmatic = document.querySelector('button[data-testid^="chip-stack-value-"]') !== null;
+      const isNewPlatform = document.querySelector('#chips .chips3d') !== null;
+
+      // Check if it's actually betting time
+      const bettingTimeResult = checkBettingTime(isPragmatic, isNewPlatform);
+      if (bettingTimeResult !== true) {
+        console.log(`[BetAutomation] Not betting time: ${bettingTimeResult}`);
         chrome.runtime.sendMessage({
           type: 'betError',
-          message: 'Betting is currently disabled (game in progress)',
+          message: bettingTimeResult,
           platform,
           amount,
           side,
-          errorType: 'betting_disabled'
+          errorType: 'not_betting_time'
         });
         return;
       }
-
-      // Detect platform type
-      const isPragmatic = document.querySelector('button[data-testid^="chip-stack-value-"]') !== null;
-      const isNewPlatform = document.querySelector('#chips .chips3d') !== null;
+      
+      console.log('[BetAutomation] Betting time confirmed - proceeding with bet attempt');
 
       console.log(`[BetAutomation] Platform detected - Pragmatic: ${isPragmatic}, New Platform: ${isNewPlatform}`);
 
@@ -437,9 +694,11 @@
       let chipPlan = null;
 
       if (isPragmatic) {
-        // Pragmatic platform logic
+        // Pragmatic platform logic - try exact match first (preserves existing behavior)
         const chipSelector = `button[data-testid="chip-stack-value-${amount}"]`;
         chipButton = document.querySelector(chipSelector);
+        
+        console.log(`[BetAutomation] Looking for Pragmatic chip ${amount}, found:`, !!chipButton);
 
         // Helper to get all available chips (Pragmatic)
         function getAvailableChips() {
@@ -464,6 +723,7 @@
         }
 
         if (!chipButton) {
+          console.log(`[BetAutomation] Exact chip ${amount} not found, trying composition...`);
           const availableChips = getAvailableChips();
           
           if (availableChips.length === 0) {
@@ -478,6 +738,7 @@
             return;
           }
           
+          console.log(`[BetAutomation] Available chips:`, availableChips.map(c => c.value));
           chipPlan = composeChips(amount, availableChips);
           if (!chipPlan) {
             const availableValues = availableChips.map(chip => formatAmount(chip.value)).join(', ');
@@ -494,9 +755,20 @@
           }
         }
       } else if (isNewPlatform) {
-        // New platform logic
-        const chipSelector = `.chips3d-${amount}`;
+        // New platform logic - try exact match first
+        // Handle different chip formats: 1000 -> chips3d-1k, 500 -> chips3d-500, etc.
+        let chipSelector;
+        if (amount >= 1000) {
+          // Convert 1000 to 1k, 2000 to 2k, etc.
+          const kAmount = amount >= 1000 ? `${Math.floor(amount / 1000)}k` : amount.toString();
+          chipSelector = `.chips3d-${kAmount}`;
+        } else {
+          chipSelector = `.chips3d-${amount}`;
+        }
+        
         chipButton = document.querySelector(chipSelector);
+        
+        console.log(`[BetAutomation] Looking for new platform chip ${amount} (selector: ${chipSelector}), found:`, !!chipButton);
 
         // Helper to get all available chips (New Platform)
         function getAvailableChips() {
@@ -506,9 +778,18 @@
 
           const uniqueByValue = new Map();
           for (const btn of chipButtons) {
-            const match = btn.className.match(/chips3d-(\d+)/);
+            // Match both formats: chips3d-500 and chips3d-1k
+            const match = btn.className.match(/chips3d-(\d+)(k)?/);
             if (match) {
-              const value = parseInt(match[1], 10);
+              let value;
+              if (match[2] === 'k') {
+                // Handle k format: 1k = 1000, 2k = 2000, etc.
+                value = parseInt(match[1], 10) * 1000;
+              } else {
+                // Handle regular format: 500, 200, etc.
+                value = parseInt(match[1], 10);
+              }
+              
               if (!uniqueByValue.has(value)) {
                 uniqueByValue.set(value, { value, btn });
               }
@@ -519,6 +800,7 @@
         }
 
         if (!chipButton) {
+          console.log(`[BetAutomation] Exact chip ${amount} not found, trying composition...`);
           const availableChips = getAvailableChips();
           
           if (availableChips.length === 0) {
@@ -533,6 +815,7 @@
             return;
           }
           
+          console.log(`[BetAutomation] Available chips:`, availableChips.map(c => c.value));
           chipPlan = composeChips(amount, availableChips);
           if (!chipPlan) {
             const availableValues = availableChips.map(chip => formatAmount(chip.value)).join(', ');
@@ -663,14 +946,39 @@
             return;
           }
           
-          chipButton.click();
+          // Click chip with visual effect
+          console.log(`[BetAutomation] Clicking chip: ${amount}`);
+          simulateClick(chipButton);
+          
+          // Send chip click notification
+          chrome.runtime.sendMessage({
+            type: 'chipClicked',
+            platform: platform,
+            amount: amount,
+            side: side,
+            message: `Chip ${formatAmount(amount)} clicked`
+          });
+          
           await sleep(300);
+          
+          // Click bet area with visual effect
           const clickTarget = findClickableElement(betArea, side);
           if (clickTarget) {
+            console.log(`[BetAutomation] Clicking bet area: ${side}`);
             simulateClick(clickTarget);
           } else {
+            console.log(`[BetAutomation] Clicking bet area (fallback): ${side}`);
             simulateClick(betArea);
           }
+          
+          // Send bet area click notification
+          chrome.runtime.sendMessage({
+            type: 'betAreaClicked',
+            platform: platform,
+            amount: amount,
+            side: side,
+            message: `Bet area ${side} clicked`
+          });
         } else if (chipPlan) {
           // Compose using multiple chips
           for (const { chip, count } of chipPlan) {
@@ -695,9 +1003,9 @@
               return;
             }
             
-            // Select chip once
+            // Select chip once with visual effect
             console.log(`[BetAutomation] Selecting chip: ${chip.value}`);
-            chip.btn.click();
+            simulateClick(chip.btn);
             await sleep(300); // Allow UI to register selected chip
 
             const clickTarget = findClickableElement(betArea, side);
@@ -728,18 +1036,127 @@
         // Wait for bet to be placed
         await sleep(300);
         
+        // Step 4: Click the confirm button to finalize the bet (ONLY for new platform - Pragmatic doesn't need this)
+        if (isNewPlatform) {
+          console.log('[BetAutomation] Looking for confirm button (new platform only)...');
+          
+          // Find confirm button for new platform only
+          let confirmButton = document.querySelector('#confirm, .btn_confirm, button[class*="confirm"], [id*="confirm"]');
+          
+          // Try alternative selectors if primary ones don't work
+          if (!confirmButton) {
+            const alternativeSelectors = [
+              'button[class*="confirm"]',
+              '.btn_confirm',
+              '#confirm',
+              '[id*="confirm"]',
+              '[class*="confirm"]'
+            ];
+            
+            for (const selector of alternativeSelectors) {
+              confirmButton = document.querySelector(selector);
+              if (confirmButton) {
+                console.log(`[BetAutomation] Found confirm button with selector: ${selector}`);
+                break;
+              }
+            }
+          }
+          
+          if (confirmButton) {
+            // Check if confirm button is enabled
+            const isConfirmDisabled = confirmButton.disabled || 
+                                    confirmButton.hasAttribute('disabled') || 
+                                    confirmButton.classList.contains('disabled');
+            
+            if (isConfirmDisabled) {
+              console.log('[BetAutomation] Confirm button is disabled, waiting for it to become enabled...');
+              // Wait for confirm button to become enabled
+              const maxWaitTime = 3000; // 3 seconds
+              const startTime = Date.now();
+              
+              while (Date.now() - startTime < maxWaitTime) {
+                const stillDisabled = confirmButton.disabled || 
+                                    confirmButton.hasAttribute('disabled') || 
+                                    confirmButton.classList.contains('disabled');
+                if (!stillDisabled) {
+                  break;
+                }
+                await sleep(100);
+              }
+              
+              // Check again after waiting
+              const stillDisabledAfterWait = confirmButton.disabled || 
+                                           confirmButton.hasAttribute('disabled') || 
+                                           confirmButton.classList.contains('disabled');
+              
+              if (stillDisabledAfterWait) {
+                console.log('[BetAutomation] Confirm button still disabled after waiting - checking reason...');
+                
+                // Check if it's still betting time
+                const bettingTimeResult = checkBettingTime(isPragmatic, isNewPlatform);
+                if (bettingTimeResult !== true) {
+                  console.log(`[BetAutomation] Confirm disabled because: ${bettingTimeResult}`);
+                  chrome.runtime.sendMessage({
+                    type: 'betError',
+                    message: `Confirm button disabled: ${bettingTimeResult}`,
+                    platform,
+                    amount,
+                    side,
+                    errorType: 'not_betting_time'
+                  });
+                  return;
+                } else {
+                  // It's betting time but confirm is still disabled - likely insufficient balance
+                  console.log('[BetAutomation] Confirm disabled during betting time - likely insufficient balance');
+                  chrome.runtime.sendMessage({
+                    type: 'betError',
+                    message: 'Insufficient balance - cannot place bet',
+                    platform,
+                    amount,
+                    side,
+                    errorType: 'insufficient_balance'
+                  });
+                  return;
+                }
+              }
+            }
+            
+            // Click the confirm button with visual effect
+            console.log('[BetAutomation] Clicking confirm button...');
+            simulateClick(confirmButton);
+            
+            // Send confirm button click notification
+            chrome.runtime.sendMessage({
+              type: 'confirmClicked',
+              platform: platform,
+              amount: amount,
+              side: side,
+              message: 'Confirm button clicked'
+            });
+            
+            await sleep(500); // Wait for confirmation to process
+          } else {
+            console.warn('[BetAutomation] Confirm button not found on new platform - bet may not be finalized');
+          }
+        } else if (isPragmatic) {
+          console.log('[BetAutomation] Pragmatic platform - no confirm button needed (bets are placed immediately)');
+        }
+        
         // Verify bet was placed by checking for bet confirmation or error messages
-        const errorMessages = document.querySelectorAll('[class*="error"], [class*="Error"], [data-testid*="error"]');
-        if (errorMessages.length > 0) {
-          const errorText = Array.from(errorMessages).map(el => el.textContent).join('; ');
+        await sleep(1000); // Wait a bit longer for error messages to appear
+        
+        // Check for various types of error messages
+        const errorResult = checkForBettingErrors();
+        if (errorResult.hasError) {
+          console.log(`[BetAutomation] Betting error detected: ${errorResult.message}`);
           chrome.runtime.sendMessage({
             type: 'betError',
-            message: `Bet placement failed: ${errorText}`,
+            message: errorResult.message,
             platform,
             amount,
             side,
-            errorType: 'bet_placement_failed',
-            errorDetails: errorText
+            errorType: errorResult.errorType,
+            errorDetails: errorResult.details
           });
           return;
         }
