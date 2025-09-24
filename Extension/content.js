@@ -381,43 +381,44 @@
         return 'Betting is disabled - game in progress';
       }
       
-      // Check for countdown timers - updated for actual HTML structure
-      const countdown = document.querySelector('#countdown, #countdownTime, [id*="countdown"], [class*="countdown"]');
-      if (countdown) {
-        console.log(`[BetAutomation] Found countdown element:`, countdown);
-        
-        const countdownTime = document.querySelector('#countdownTime p');
-        if (countdownTime) {
-          const countdownText = (countdownTime.textContent || countdownTime.innerText || '').trim();
-          console.log(`[BetAutomation] Countdown text: "${countdownText}"`);
-          
-          // Check if countdown contains a valid number
-          const countdownNumber = parseInt(countdownText);
-          
-          // If it's not a number or is NaN, it's not betting time
-          if (isNaN(countdownNumber) || countdownText === '' || countdownText === null) {
-            return 'Not betting time - countdown not showing valid number';
-          }
-          
-          // If countdown is 0 or negative, betting time has ended
-          if (countdownNumber <= 0) {
-            return 'Betting time has ended - countdown reached 0';
-          }
-          
-          // If countdown is very low (1-3 seconds), warn but allow betting
-          if (countdownNumber <= 3) {
-            console.log(`[BetAutomation] Warning: Countdown is very low (${countdownNumber} seconds)`);
-          }
-          
-          console.log(`[BetAutomation] Betting time confirmed - countdown: ${countdownNumber} seconds`);
-        } else {
-          console.log(`[BetAutomation] CountdownTime p element not found`);
-          return 'Not betting time - countdown element not found';
-        }
-      } else {
-        console.log(`[BetAutomation] No countdown element found`);
-        return 'Not betting time - no countdown element found';
-      }
+       // Check for countdown timers - updated for actual HTML structure
+       const countdown = document.querySelector('#countdown, #countdownTime, [id*="countdown"], [class*="countdown"]');
+       if (countdown) {
+         console.log(`[BetAutomation] Found countdown element:`, countdown);
+         
+         // Look for the countdown time specifically in the nested structure
+         const countdownTime = document.querySelector('#countdownTime p');
+         if (countdownTime) {
+           const countdownText = (countdownTime.textContent || countdownTime.innerText || '').trim();
+           console.log(`[BetAutomation] Countdown text: "${countdownText}"`);
+           
+           // Check if countdown contains a valid number
+           const countdownNumber = parseInt(countdownText);
+           
+           // If it's not a number or is NaN, it's not betting time
+           if (isNaN(countdownNumber) || countdownText === '' || countdownText === null) {
+             return 'Not betting time - countdown not showing valid number';
+           }
+           
+           // If countdown is 0 or negative, betting time has ended
+           if (countdownNumber <= 0) {
+             return 'Betting time has ended - countdown reached 0';
+           }
+           
+           // If countdown is very low (1-3 seconds), warn but allow betting
+           if (countdownNumber <= 3) {
+             console.log(`[BetAutomation] Warning: Countdown is very low (${countdownNumber} seconds)`);
+           }
+           
+           console.log(`[BetAutomation] Betting time confirmed - countdown: ${countdownNumber} seconds`);
+         } else {
+           console.log(`[BetAutomation] CountdownTime p element not found`);
+           return 'Not betting time - countdown element not found';
+         }
+       } else {
+         console.log(`[BetAutomation] No countdown element found`);
+         return 'Not betting time - no countdown element found';
+       }
       
       // Check if chips are disabled
       const disabledChips = document.querySelectorAll('#chips .chips3d.disabled, .list_select_chips3d .chips3d.disabled');
@@ -616,7 +617,7 @@
         return;
       }
 
-      if (!side || !['Player', 'Banker'].includes(side)) {
+      if (!side || !['Player', 'Banker', 'player-pair', 'perfect-pair', 'big', 'small', 'any-pair', 'banker-pair'].includes(side)) {
         chrome.runtime.sendMessage({
           type: 'betError',
           message: `Invalid bet side: ${side}`,
@@ -670,8 +671,13 @@
       const isPragmatic = document.querySelector('button[data-testid^="chip-stack-value-"]') !== null;
       const isNewPlatform = document.querySelector('#chips .chips3d') !== null;
 
+      console.log(`[BetAutomation] Platform detection - Pragmatic: ${isPragmatic}, New Platform: ${isNewPlatform}`);
+      console.log(`[BetAutomation] Betting side: ${side}, Amount: ${amount}`);
+
       // Check if it's actually betting time
       const bettingTimeResult = checkBettingTime(isPragmatic, isNewPlatform);
+      console.log(`[BetAutomation] Betting time check result: ${bettingTimeResult}`);
+      
       if (bettingTimeResult !== true) {
         console.log(`[BetAutomation] Not betting time: ${bettingTimeResult}`);
         chrome.runtime.sendMessage({
@@ -755,16 +761,16 @@
           }
         }
       } else if (isNewPlatform) {
-        // New platform logic - try exact match first
-        // Handle different chip formats: 1000 -> chips3d-1k, 500 -> chips3d-500, etc.
-        let chipSelector;
-        if (amount >= 1000) {
-          // Convert 1000 to 1k, 2000 to 2k, etc.
-          const kAmount = amount >= 1000 ? `${Math.floor(amount / 1000)}k` : amount.toString();
-          chipSelector = `.chips3d-${kAmount}`;
-        } else {
-          chipSelector = `.chips3d-${amount}`;
-        }
+         // New platform logic - try exact match first
+         // Handle different chip formats: 1000 -> chips3d-1k, 500 -> chips3d-500, etc.
+         let chipSelector;
+         if (amount >= 1000) {
+           // Convert 1000 to 1k, 2000 to 2k, etc.
+           const kAmount = `${Math.floor(amount / 1000)}k`;
+           chipSelector = `.chips3d-${kAmount}`;
+         } else {
+           chipSelector = `.chips3d-${amount}`;
+         }
         
         chipButton = document.querySelector(chipSelector);
         
@@ -863,23 +869,35 @@
           .filter(Boolean);
       }
 
-      // Step 2: Find the bet area based on platform
-      let betArea;
-      if (isPragmatic) {
-        // Pragmatic platform bet areas
-        if (side === 'Player') {
-          betArea = document.getElementById('leftBetTextRoot');
-        } else if (side === 'Banker') {
-          betArea = document.getElementById('rightBetTextRoot');
-        }
-      } else if (isNewPlatform) {
-        // New platform bet areas
-        if (side === 'Player') {
-          betArea = document.getElementById('betBoxPlayer');
-        } else if (side === 'Banker') {
-          betArea = document.getElementById('betBoxBanker');
-        }
-      }
+       // Step 2: Find the bet area based on platform
+       let betArea;
+       if (isPragmatic) {
+         // Pragmatic platform bet areas
+         if (side === 'Player') {
+           betArea = document.getElementById('leftBetTextRoot');
+         } else if (side === 'Banker') {
+           betArea = document.getElementById('rightBetTextRoot');
+         }
+       } else if (isNewPlatform) {
+         // New platform bet areas - handle additional betting options
+         if (side === 'Player') {
+           betArea = document.getElementById('betBoxPlayer');
+         } else if (side === 'Banker') {
+           betArea = document.getElementById('betBoxBanker');
+         } else if (side === 'player-pair') {
+           betArea = document.getElementById('betBoxPlayerPair');
+         } else if (side === 'perfect-pair') {
+           betArea = document.getElementById('betBoxPhoenix');
+         } else if (side === 'big') {
+           betArea = document.getElementById('betBoxBig');
+         } else if (side === 'small') {
+           betArea = document.getElementById('betBoxSmall');
+         } else if (side === 'any-pair') {
+           betArea = document.getElementById('betBoxTurtle');
+         } else if (side === 'banker-pair') {
+           betArea = document.getElementById('betBoxBankerPair');
+         }
+       }
 
       if (!betArea) {
         // Try alternative selectors for bet areas
@@ -1271,43 +1289,85 @@
   // Function to cancel the last bet (best effort - selectors may need adjustment)
   async function cancelBet() {
     try {
-      const selector = 'button[data-testid="undo-button"]';
-      const btn = await waitForElement(selector, 2000);
-
-      if (!btn) {
-        console.warn('Undo button not found');
-        return;
-      }
-
-      // Wait until button becomes enabled
-      const enabled = await waitUntilEnabled(btn, 2000);
-      if (!enabled) {
-        console.warn('Undo button remained disabled, cannot click');
-        return;
-      }
-
-      // Click the undo button multiple times to remove all chips
-      let clickCount = 0;
-      const maxClicks = 20;
+      // Detect platform type
+      const isPragmatic = document.querySelector('button[data-testid^="chip-stack-value-"]') !== null;
+      const isNewPlatform = document.querySelector('#chips .chips3d') !== null;
       
-      while (clickCount < maxClicks) {
-        // Check if the undo button is still enabled (meaning there are still chips to remove)
-        if (btn.disabled || btn.hasAttribute('disabled')) {
-          console.log(`Undo button disabled after ${clickCount} clicks - all chips removed`);
-          break;
+      let btn = null;
+      
+      if (isPragmatic) {
+        // Pragmatic platform - use undo button
+        const selector = 'button[data-testid="undo-button"]';
+        btn = await waitForElement(selector, 2000);
+        
+        if (!btn) {
+          console.warn('Pragmatic undo button not found');
+          return;
         }
         
-        simulateClick(btn);
-        clickCount++;
+        // Wait until button becomes enabled
+        const enabled = await waitUntilEnabled(btn, 2000);
+        if (!enabled) {
+          console.warn('Pragmatic undo button remained disabled, cannot click');
+          return;
+        }
         
-        // Wait a bit between clicks to allow the UI to update
-        await sleep(300);
-      }
-      
-      if (clickCount >= maxClicks) {
-        console.log(`Reached maximum clicks (${maxClicks}) - stopping undo operations`);
-      } else if (clickCount > 0) {
-        console.log(`Successfully cancelled bet with ${clickCount} undo clicks`);
+        // Click the undo button multiple times to remove all chips
+        let clickCount = 0;
+        const maxClicks = 20;
+        
+        while (clickCount < maxClicks) {
+          // Check if the undo button is still enabled (meaning there are still chips to remove)
+          if (btn.disabled || btn.hasAttribute('disabled')) {
+            console.log(`Pragmatic undo button disabled after ${clickCount} clicks - all chips removed`);
+            break;
+          }
+          
+          simulateClick(btn);
+          clickCount++;
+          
+          // Wait a bit between clicks to allow the UI to update
+          await sleep(300);
+        }
+        
+        if (clickCount >= maxClicks) {
+          console.log(`Reached maximum clicks (${maxClicks}) - stopping undo operations`);
+        } else if (clickCount > 0) {
+          console.log(`Successfully cancelled bet with ${clickCount} undo clicks`);
+        }
+        
+      } else if (isNewPlatform) {
+        // New platform - use cancel button
+        const selector = '#cancel, .btn_cancel, button[id*="cancel"], button[class*="cancel"]';
+        btn = await waitForElement(selector, 2000);
+        
+        if (!btn) {
+          console.warn('New platform cancel button not found');
+          return;
+        }
+        
+        // Wait until button becomes enabled
+        const enabled = await waitUntilEnabled(btn, 2000);
+        if (!enabled) {
+          console.warn('New platform cancel button remained disabled, cannot click');
+          return;
+        }
+        
+        // Click the cancel button with visual effect
+        console.log('[BetAutomation] Clicking cancel button...');
+        simulateClick(btn);
+        
+        // Send cancel button click notification
+        chrome.runtime.sendMessage({
+          type: 'cancelClicked',
+          message: 'Cancel button clicked'
+        });
+        
+        console.log('Successfully cancelled bet with cancel button');
+        
+      } else {
+        console.warn('Unknown platform - cannot determine cancel button');
+        return;
       }
       
     } catch (err) {

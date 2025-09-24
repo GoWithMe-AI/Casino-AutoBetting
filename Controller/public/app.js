@@ -61,6 +61,53 @@ const cancelAllBtn = document.getElementById('cancel-all');
 const logoutBtn = document.getElementById('logout-btn');
 const adminBtn = document.getElementById('admin-btn');
 
+// Visual click effect function
+function addClickEffect(element) {
+  const rect = element.getBoundingClientRect();
+  const effect = document.createElement('div');
+  effect.style.cssText = `
+    position: fixed;
+    left: ${rect.left + rect.width / 2}px;
+    top: ${rect.top + rect.height / 2}px;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(0, 255, 0, 0.6);
+    pointer-events: none;
+    z-index: 10000;
+    transform: translate(-50%, -50%);
+    animation: clickEffect 0.6s ease-out forwards;
+  `;
+  
+  if (!document.querySelector('#click-effect-styles')) {
+    const style = document.createElement('style');
+    style.id = 'click-effect-styles';
+    style.textContent = `
+      @keyframes clickEffect {
+        0% {
+          width: 0;
+          height: 0;
+          opacity: 1;
+        }
+        100% {
+          width: 40px;
+          height: 40px;
+          opacity: 0;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+  
+  document.body.appendChild(effect);
+  
+  setTimeout(() => {
+    if (effect.parentNode) {
+      effect.parentNode.removeChild(effect);
+    }
+  }, 600);
+}
+
 // Check if token is valid
 function isTokenValid(token) {
   try {
@@ -491,16 +538,18 @@ function renderPcOrder() {
 // Chip Config
 
 const ALL_CHIPS = [
-  10, 20, 100, 200, 1000, 2000, 3000, 5000, 10000, 20000, 25000, 50000, 125000,
+  10, 20, 50, 100, 200, 500, 1000, 2000, 3000, 5000, 10000, 20000, 25000, 50000, 125000,
   250000, 500000, 1000000, 1250000, 2500000, 5000000, 10000000, 50000000,
 ];
 
-let selectedChips = [
-  1000, 25000, 125000, 500000, 1250000, 2500000, 5000000, 50000000,
-]; // defaults
+// Check if we're on the new game page to set different default chips
+const isNewGame = window.location.pathname.includes('new-game');
+let selectedChips = isNewGame 
+  ? [50, 100, 200, 500, 1000] // New game defaults: 50, 100, 200, 500, 1k
+  : [1000, 25000, 125000, 500000, 1250000, 2500000, 5000000, 50000000]; // Pragmatic defaults
 
 const iconAvailable = new Set([
-  10, 20, 100, 200, 1000, 2000, 3000, 5000, 10000, 20000, 25000, 50000, 125000,
+  10, 20, 50, 100, 200, 500, 1000, 2000, 3000, 5000, 10000, 20000, 25000, 50000, 125000,
   250000, 500000, 1000000, 1250000, 2500000, 5000000, 10000000, 50000000,
 ]);
 
@@ -673,11 +722,18 @@ placeBetBtn.addEventListener('click', async () => {
     }
   }, 15000);
 
+  // Check if we're on the new game page and get the selected bet type
+  const isNewGame = window.location.pathname.includes('new-game');
+  const selectedBetType = window.selectedBetType;
+  
+  // Use the selected bet type if we're on new game page and a bet type is selected
+  const betSide = (isNewGame && selectedBetType) ? selectedBetType : state.side;
+
   const betData = {
     platform: state.platform,
     pc: state.firstPC,
     amount: state.amount,
-    side: state.side,
+    side: betSide,
     user: currentUser,
   };
 
@@ -710,11 +766,16 @@ placeBetBtn.addEventListener('click', async () => {
 // Place bet on PC1 only
 placeBetPc1Btn.addEventListener('click', async () => {
   if (!canPlaceBetSingle('PC1')) return; // order does not affect single PC bets
+  // Check if we're on the new game page and get the selected bet type
+  const isNewGame = window.location.pathname.includes('new-game');
+  const selectedBetType = window.selectedBetType;
+  const betSide = (isNewGame && selectedBetType) ? selectedBetType : state.side;
+
   const betData = {
     platform: state.platform,
     pc: 'PC1',
     amount: state.amount,
-    side: state.side,
+    side: betSide,
     single: true,
     user: currentUser,
   };  
@@ -743,11 +804,16 @@ placeBetPc1Btn.addEventListener('click', async () => {
 // Place bet on PC2 only
 placeBetPc2Btn.addEventListener('click', async () => {
   if (!canPlaceBetSingle('PC2')) return;
+  // Check if we're on the new game page and get the selected bet type
+  const isNewGame = window.location.pathname.includes('new-game');
+  const selectedBetType = window.selectedBetType;
+  const betSide = (isNewGame && selectedBetType) ? selectedBetType : state.side;
+
   const betData = {
     platform: state.platform,
     pc: 'PC2',
     amount: state.amount,
-    side: state.side,
+    side: betSide,
     single: true,
     user: currentUser,
   };
@@ -861,6 +927,9 @@ addLog('Platform: Pragmatic only', 'info');
 
 // Cancel all bets handler
 cancelAllBtn.addEventListener('click', async () => {
+  // Add visual click effect
+  addClickEffect(cancelAllBtn);
+  
   try {
     const response = await fetch('/api/cancelBetAll', {
       method: 'POST',

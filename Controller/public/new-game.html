@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bet Automation Controller - New Game</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .game-selector {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            justify-content: center;
+        }
+        
+        .game-btn {
+            padding: 0.75rem 1.5rem;
+            border: 2px solid #333;
+            background: #f5f5f5;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .game-btn.active {
+            background: #4CAF50;
+            color: white;
+            border-color: #4CAF50;
+        }
+        
+        
+        .side-container {
+            display: flex;
+            justify-content: space-around;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .side-btn {
+            flex: 1;
+            padding: 1rem;
+            border: none;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            opacity: 0.6;
+        }
+        
+        .side-btn.player {
+            background: #1e88e5;
+            color: #ffffff;
+        }
+        
+        .side-btn.banker {
+            background: #c62828;
+            color: #ffffff;
+        }
+        
+        .side-btn.additional {
+            background: #666;
+            color: #ffffff;
+            font-size: 1rem;
+            padding: 0.75rem;
+        }
+        
+        .side-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .side-btn.selected {
+            opacity: 1;
+            transform: scale(1.1);
+            box-shadow: 0 0 10px rgba(255, 255, 255, 0.4);
+        }
+        
+        .side-btn.player.selected,
+        .side-btn.banker.selected {
+            opacity: 0.9;
+        }
+        
+        .side-btn.additional.selected {
+            opacity: 1;
+            background: #4CAF50;
+        }
+        
+        .additional-options {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .action-btn {
+            flex: 1;
+            padding: 1rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .cancel-btn {
+            background: #f44336;
+            color: white;
+        }
+        
+        .cancel-btn:hover {
+            background: #d32f2f;
+        }
+        
+        .bet-btn {
+            background: #4CAF50;
+            color: white;
+        }
+        
+        .bet-btn:hover {
+            background: #45a049;
+        }
+        
+        .bet-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .bet-options {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .bet-option-btn {
+            flex: 1;
+            padding: 1rem;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            background: #f5f5f5;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .bet-option-btn:hover {
+            border-color: #4CAF50;
+            background: #f0f8f0;
+        }
+        
+        .bet-option-btn.selected {
+            border-color: #4CAF50;
+            background: #e8f5e8;
+        }
+        
+        /* Log Container Styling */
+        .log-container {
+            max-height: 200px;
+            overflow-y: auto;
+            background: #1e1e1e;
+            border-radius: 5px;
+            padding: 1rem;
+            border: 1px solid #333;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.5rem;
+            padding: 0.25rem 0;
+            border-bottom: 1px solid #333;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+            margin-bottom: 0;
+        }
+        
+        .log-entry.success {
+            color: #4CAF50;
+        }
+        
+        .log-entry.error {
+            color: #f44336;
+        }
+        
+        .log-entry.info {
+            color: #2196F3;
+        }
+        
+        .log-entry.warning {
+            color: #FF9800;
+        }
+    </style>
+</head>
+
+<body>
+    <!-- License Status Bar -->
+    <div id="license-status-bar" style="position: fixed; top: 0; left: 0; right: 0; padding: 0.5rem; text-align: center; font-weight: bold; z-index: 1000; display: none;"></div>
+    
+    <div class="container" style="position: relative;">
+        <!-- License Info in Container Top Right -->
+        <div id="license-info" style="position: absolute; top: 10px; right: 10px; font-size: 0.9rem; padding: 0.5rem 1rem; border-radius: 4px; font-weight: bold; z-index: 1001; max-width: 300px; text-align: center;"></div>
+        
+        <div style="display:flex;justify-content:space-between;align-items:center">
+            <h1>Bet Automation Controller - New Game</h1>
+            <div style="display:flex;gap:0.5rem;align-items:center">
+              <button id="admin-btn" class="btn-admin" style="display:none">Admin</button>
+              <button id="logout-btn" class="btn-danger">Logout</button>
+            </div>
+        </div>
+
+        <!-- Game Selection -->
+        <div class="game-selector">
+            <button class="game-btn" id="pragmatic-btn">Pragmatic</button>
+            <button class="game-btn active" id="new-game-btn">New Game</button>
+        </div>
+
+        <!-- Connection Status -->
+        <div class="status-section">
+            <h2>Connection Status</h2>
+            <div class="status-indicators">
+                <div class="status-item" id="pc1-item">
+                    <span class="status-label" id="pc1-label">PC1:</span>
+                    <span class="status-indicator" id="pc1-status">Disconnected</span>
+                </div>
+                <button id="swap-btn" class="swap-btn" title="Swap order">&#8646;</button>
+                <div class="status-item" id="pc2-item">
+                    <span class="status-label" id="pc2-label">PC2:</span>
+                    <span class="status-indicator" id="pc2-status">Disconnected</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Amount Selection -->
+        <div class="control-section">
+            <h2>Select Amount</h2>
+            <div class="amount-display" id="selected-amount">--</div>
+            <div class="chip-actions">
+                <button id="chip-config-btn" class="chip-config-btn">⚙️ Customize</button>
+            </div>
+            <div class="chip-container" id="chip-container"></div>
+            <div class="chip-summary" id="chip-summary"></div>
+
+            <!-- Chip Selector Modal -->
+            <div class="modal" id="chip-selector-modal">
+                <div class="modal-content">
+                    <h3>Select Chips</h3>
+                    <div class="chip-checkbox-container" id="chip-checkbox-container"></div>
+                    <div class="modal-buttons">
+                        <button id="chip-save-btn" class="modal-save-btn">Save</button>
+                        <button id="chip-cancel-btn" class="modal-cancel-btn">Cancel</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Side Selection -->
+        <div class="control-section">
+            <h2>Select Side</h2>
+            <div class="side-container">
+                <button class="side-btn player" id="player-btn">Player</button>
+                <button class="side-btn banker" id="banker-btn">Banker</button>
+            </div>
+            
+            <!-- Additional Betting Options -->
+            <div class="additional-options">
+                <button class="side-btn additional" id="player-pair-btn">P PAIR</button>
+                <button class="side-btn additional" id="perfect-pair-btn">PERFECT PAIR</button>
+                <button class="side-btn additional" id="big-btn">BIG</button>
+                <button class="side-btn additional" id="small-btn">SMALL</button>
+                <button class="side-btn additional" id="any-pair-btn">ANY PAIR</button>
+                <button class="side-btn additional" id="banker-pair-btn">B PAIR</button>
+            </div>
+            
+            <button class="cancel-all-btn" id="cancel-all">Cancel Bet (Both PCs)</button>
+        </div>
+
+        <!-- Bet Button -->
+        <div class="control-section">
+            <button class="bet-btn" id="place-bet">Place Bet</button>
+            <div class="bet-btn-row">
+                <button class="bet-btn" id="place-bet-pc1">Place Bet (PC1 Only)</button>
+                <button class="bet-btn" id="place-bet-pc2">Place Bet (PC2 Only)</button>
+            </div>
+        </div>
+
+        <!-- Log Section -->
+        <div class="log-section">
+            <h2>Activity Log</h2>
+            <div class="log-container" id="log-container"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Game selection logic
+        document.getElementById('pragmatic-btn').addEventListener('click', function() {
+            window.location.href = 'index.html';
+        });
+        
+        document.getElementById('new-game-btn').addEventListener('click', function() {
+            // Already on new game page
+        });
+        
+        
+        // Side selection
+        document.getElementById('player-btn').addEventListener('click', function() {
+            // Only remove selected from Banker button, not additional buttons
+            document.getElementById('banker-btn').classList.remove('selected');
+            this.classList.add('selected');
+            // Store the selected bet type for the extension
+            window.selectedBetType = 'Player';
+        });
+        
+        document.getElementById('banker-btn').addEventListener('click', function() {
+            // Only remove selected from Player button, not additional buttons
+            document.getElementById('player-btn').classList.remove('selected');
+            this.classList.add('selected');
+            // Store the selected bet type for the extension
+            window.selectedBetType = 'Banker';
+        });
+        
+        // Additional betting options
+        document.getElementById('player-pair-btn').addEventListener('click', function() {
+            // Toggle functionality: if already selected, deselect it
+            if (this.classList.contains('selected')) {
+                this.classList.remove('selected');
+                window.selectedBetType = null; // Clear the bet type
+            } else {
+                // Remove selected from other additional buttons, not main Player/Banker buttons
+                document.querySelectorAll('.side-btn.additional').forEach(btn => btn.classList.remove('selected'));
+                this.classList.add('selected');
+                // Store the selected bet type for the extension
+                window.selectedBetType = 'player-pair';
+            }
+        });
+        
+        document.getElementById('perfect-pair-btn').addEventListener('click', function() {
+            // Toggle functionality: if already selected, deselect it
+            if (this.classList.contains('selected')) {
+                this.classList.remove('selected');
+                window.selectedBetType = null; // Clear the bet type
+            } else {
+                // Remove selected from other additional buttons, not main Player/Banker buttons
+                document.querySelectorAll('.side-btn.additional').forEach(btn => btn.classList.remove('selected'));
+                this.classList.add('selected');
+                window.selectedBetType = 'perfect-pair';
+            }
+        });
+        
+        document.getElementById('big-btn').addEventListener('click', function() {
+            // Toggle functionality: if already selected, deselect it
+            if (this.classList.contains('selected')) {
+                this.classList.remove('selected');
+                window.selectedBetType = null; // Clear the bet type
+            } else {
+                // Remove selected from other additional buttons, not main Player/Banker buttons
+                document.querySelectorAll('.side-btn.additional').forEach(btn => btn.classList.remove('selected'));
+                this.classList.add('selected');
+                window.selectedBetType = 'big';
+            }
+        });
+        
+        document.getElementById('small-btn').addEventListener('click', function() {
+            // Toggle functionality: if already selected, deselect it
+            if (this.classList.contains('selected')) {
+                this.classList.remove('selected');
+                window.selectedBetType = null; // Clear the bet type
+            } else {
+                // Remove selected from other additional buttons, not main Player/Banker buttons
+                document.querySelectorAll('.side-btn.additional').forEach(btn => btn.classList.remove('selected'));
+                this.classList.add('selected');
+                window.selectedBetType = 'small';
+            }
+        });
+        
+        document.getElementById('any-pair-btn').addEventListener('click', function() {
+            // Toggle functionality: if already selected, deselect it
+            if (this.classList.contains('selected')) {
+                this.classList.remove('selected');
+                window.selectedBetType = null; // Clear the bet type
+            } else {
+                // Remove selected from other additional buttons, not main Player/Banker buttons
+                document.querySelectorAll('.side-btn.additional').forEach(btn => btn.classList.remove('selected'));
+                this.classList.add('selected');
+                window.selectedBetType = 'any-pair';
+            }
+        });
+        
+        document.getElementById('banker-pair-btn').addEventListener('click', function() {
+            // Toggle functionality: if already selected, deselect it
+            if (this.classList.contains('selected')) {
+                this.classList.remove('selected');
+                window.selectedBetType = null; // Clear the bet type
+            } else {
+                // Remove selected from other additional buttons, not main Player/Banker buttons
+                document.querySelectorAll('.side-btn.additional').forEach(btn => btn.classList.remove('selected'));
+                this.classList.add('selected');
+                window.selectedBetType = 'banker-pair';
+            }
+        });
+    </script>
+</body>
+
+</html>

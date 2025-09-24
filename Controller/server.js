@@ -49,6 +49,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
+// Route for new game
+app.get('/new-game', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'new-game.html'));
+});
+
 // Redirect root to login page to avoid loading controller without auth
 app.get('/', (req, res) => {
   res.redirect('/login.html');
