@@ -288,8 +288,8 @@ const betBtnRow = document.querySelector('.bet-btn-row');
 
 // Configuration
 // const WS_BASE = 'wss://quality-crappie-painfully.ngrok-free.app/ws/';
-const WS_BASE = 'ws://localhost:8080';
-// const WS_BASE = 'wss://www.god.bet';
+// const WS_BASE = 'ws://localhost:8080';
+const WS_BASE = 'wss://www.god.bet';
 
 // Initialize WebSocket connection for status updates
 let statusWs = null;
