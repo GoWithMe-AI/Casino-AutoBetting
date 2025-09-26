@@ -69,6 +69,7 @@ const wss = new WebSocket.Server({ port: WS_PORT });
 const clients = new Map();
 const assignedPCs = new Set(); // Track which PC names are assigned
 const statusListeners = new Set(); // Track connections that want status updates
+const adminConnections = new Set(); // Track admin WebSocket connections
 const HEARTBEAT_INTERVAL = 10000; // 10 seconds
 
 // New: room structure per user
@@ -102,14 +103,28 @@ wss.on('connection', (ws, req) => {
 
       // Auth gate: expect first message type hello with token
       if (!clientUser) {
-        if (data.type !== 'hello' || !data.token) {
+        if (data.type !== 'hello' && data.type !== 'admin_hello') {
           ws.close();
           return;
         }
+        
+        if (!data.token) {
+          ws.close();
+          return;
+        }
+        
         const payload = verifyToken(data.token);
         if (!payload) {
           ws.send(JSON.stringify({ type: 'error', message: 'Invalid token' }));
           ws.close();
+          return;
+        }
+        
+        // Handle admin connections
+        if (data.type === 'admin_hello' && payload.user === 'admin') {
+          adminConnections.add(ws);
+          console.log('Admin WebSocket connected');
+          ws.send(JSON.stringify({ type: 'admin_connected' }));
           return;
         }
         
@@ -143,6 +158,10 @@ wss.on('connection', (ws, req) => {
         
         clientUser = payload.user;
         room = getRoom(clientUser);
+        
+        // Broadcast user login status change to admin
+        broadcastUserStatusChange(clientUser, true);
+        
         // proceed; do not process further this initial hello
         return;
       }
@@ -431,6 +450,13 @@ wss.on('connection', (ws, req) => {
   ws.on('close', () => {
     console.log('Client disconnected');
 
+    // Remove from admin connections if present
+    if (adminConnections.has(ws)) {
+      adminConnections.delete(ws);
+      console.log('Admin WebSocket disconnected');
+      return;
+    }
+
     // Remove from status listeners if present
     if (room) room.statusListeners.delete(ws);
 
@@ -450,6 +476,11 @@ wss.on('connection', (ws, req) => {
       // handle provisional assigned pc that never registered
       if (ws.tempAssignedPC) {
         room.assignedPCs.delete(ws.tempAssignedPC);
+      }
+      
+      // Check if user is now offline and broadcast status change
+      if (room.clients.size === 0) {
+        broadcastUserStatusChange(clientUser, false);
       }
     }
     broadcastStatus(room);
@@ -521,6 +552,21 @@ function broadcastStatus(room) {
           connectedPCs: status,
         }),
       );
+    }
+  });
+}
+
+// Broadcast user status changes to admin connections
+function broadcastUserStatusChange(username, isOnline) {
+  const message = JSON.stringify({
+    type: 'user_status_update',
+    username: username,
+    isOnline: isOnline
+  });
+  
+  adminConnections.forEach((ws) => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(message);
     }
   });
 }
@@ -781,11 +827,17 @@ app.get('/api/users', authAdmin, (req, res) => {
     const licenseEndDate = user.licenseEndDate;
     const isExpired = licenseEndDate && currentDate > licenseEndDate;
     
+    // Check if user is currently online (has active WebSocket connections)
+    const room = getRoom(username);
+    const isOnline = room && room.clients.size > 0;
+    
     return {
       username,
       licenseEndDate: licenseEndDate || 'No License',
       isExpired,
-      status: isExpired ? 'Expired' : (licenseEndDate ? 'Active' : 'No License')
+      status: isExpired ? 'Expired' : (licenseEndDate ? 'Active' : 'No License'),
+      isOnline: isOnline,
+      loginStatus: isOnline ? 'Online' : 'Offline'
     };
   });
   res.json(usersWithLicense);

@@ -23,6 +23,8 @@
   .license-info{font-size:0.8rem;margin-top:0.5rem;padding:0.5rem;background:#333;border-radius:4px}
   .license-info h4{margin:0 0 0.5rem 0;color:#4caf50}
   .license-info p{margin:0.2rem 0;color:#ccc}
+  .login-online{color:#4caf50;font-weight:bold}
+  .login-offline{color:#666;font-weight:bold}
 </style>
 </head>
 <body>
@@ -35,6 +37,7 @@
         <th>License Status</th>
         <th>License End Date</th>
         <th>Extend License</th>
+        <th>Login Status</th>
         <th>Action</th>
       </tr>
     </thead>
@@ -57,6 +60,9 @@
     <p>🟢 <span class="license-active">Active</span> - License is valid and not expired</p>
     <p>🔴 <span class="license-expired">Expired</span> - License has expired, user cannot login</p>
     <p>🟡 <span class="license-none">No License</span> - User has no license assigned</p>
+    <p><strong>Login Status:</strong></p>
+    <p>🟢 <span class="login-online">Online</span> - User is currently logged in and connected</p>
+    <p>⚫ <span class="login-offline">Offline</span> - User is not currently logged in</p>
     <p><strong>Extend License:</strong> Enter number of months and click "Extend" to add time to user's license</p>
     <p><strong>Note:</strong> Admin user has permanent license and cannot be modified</p>
   </div>
