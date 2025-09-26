@@ -260,58 +260,110 @@
 
   // Function to simulate a more realistic click with visual effect
   function simulateClick(element) {
+    console.log(`[BetAutomation] Simulating click on element:`, element);
+    
     // Add visual click effect
     addClickEffect(element);
     
     // Method 1: Try regular click first
     try {
+      console.log(`[BetAutomation] Method 1: Direct click()`);
       element.click();
-    } catch (e) {}
-
-    // Method 2: Dispatch mouse events
+    } catch (e) {
+      console.log(`[BetAutomation] Method 1 failed:`, e);
+    }
+    
+    // Method 2: Dispatch mouse events with more realistic timing and human-like behavior
     try {
       const rect = element.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
+      // Add slight randomness to click position to simulate human behavior
+      const centerX = rect.left + rect.width / 2 + (Math.random() - 0.5) * 4;
+      const centerY = rect.top + rect.height / 2 + (Math.random() - 0.5) * 4;
 
-      // Create and dispatch mousedown event
-      const mousedownEvent = new MouseEvent('mousedown', {
+      console.log(`[BetAutomation] Method 2: Mouse events at (${centerX}, ${centerY})`);
+
+      // Simulate human-like mouse movement before clicking
+      const moveEvent = new MouseEvent('mousemove', {
         view: window,
         bubbles: true,
         cancelable: true,
         clientX: centerX,
         clientY: centerY,
+        button: -1,
+        buttons: 0
       });
-      element.dispatchEvent(mousedownEvent);
+      element.dispatchEvent(moveEvent);
 
-      // Create and dispatch mouseup event
-      const mouseupEvent = new MouseEvent('mouseup', {
-        view: window,
-        bubbles: true,
-        cancelable: true,
-        clientX: centerX,
-        clientY: centerY,
-      });
-      element.dispatchEvent(mouseupEvent);
+      // Small delay to simulate human reaction time
+      setTimeout(() => {
+        // Create and dispatch mousedown event with human-like properties
+        const mousedownEvent = new MouseEvent('mousedown', {
+          view: window,
+          bubbles: true,
+          cancelable: true,
+          clientX: centerX,
+          clientY: centerY,
+          screenX: centerX + window.screenX,
+          screenY: centerY + window.screenY,
+          button: 0,
+          buttons: 1,
+          detail: 1,
+          isTrusted: true
+        });
+        element.dispatchEvent(mousedownEvent);
 
-      // Create and dispatch click event
-      const clickEvent = new MouseEvent('click', {
-        view: window,
-        bubbles: true,
-        cancelable: true,
-        clientX: centerX,
-        clientY: centerY,
-      });
-      element.dispatchEvent(clickEvent);
-    } catch (e) {}
+        // Human-like delay between mousedown and mouseup
+        setTimeout(() => {
+          // Create and dispatch mouseup event
+          const mouseupEvent = new MouseEvent('mouseup', {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+            clientX: centerX,
+            clientY: centerY,
+            screenX: centerX + window.screenX,
+            screenY: centerY + window.screenY,
+            button: 0,
+            buttons: 0,
+            detail: 1,
+            isTrusted: true
+          });
+          element.dispatchEvent(mouseupEvent);
 
-    // Method 3: Try pointer events
+          // Small delay before click event
+          setTimeout(() => {
+            // Create and dispatch click event
+            const clickEvent = new MouseEvent('click', {
+              view: window,
+              bubbles: true,
+              cancelable: true,
+              clientX: centerX,
+              clientY: centerY,
+              screenX: centerX + window.screenX,
+              screenY: centerY + window.screenY,
+              button: 0,
+              buttons: 0,
+              detail: 1,
+              isTrusted: true
+            });
+            element.dispatchEvent(clickEvent);
+          }, 5);
+        }, 50 + Math.random() * 30); // Random delay between 50-80ms
+      }, 10 + Math.random() * 20); // Random delay between 10-30ms
+    } catch (e) {
+      console.log(`[BetAutomation] Method 2 failed:`, e);
+    }
+
+    // Method 3: Try pointer events with human-like behavior
     try {
       const rect = element.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
+      const centerX = rect.left + rect.width / 2 + (Math.random() - 0.5) * 4;
+      const centerY = rect.top + rect.height / 2 + (Math.random() - 0.5) * 4;
 
-      const pointerdownEvent = new PointerEvent('pointerdown', {
+      console.log(`[BetAutomation] Method 3: Pointer events at (${centerX}, ${centerY})`);
+
+      // Simulate pointer movement
+      const pointerMoveEvent = new PointerEvent('pointermove', {
         view: window,
         bubbles: true,
         cancelable: true,
@@ -319,20 +371,151 @@
         clientY: centerY,
         pointerId: 1,
         pointerType: 'mouse',
+        button: -1,
+        buttons: 0,
+        isTrusted: true
       });
-      element.dispatchEvent(pointerdownEvent);
+      element.dispatchEvent(pointerMoveEvent);
 
-      const pointerupEvent = new PointerEvent('pointerup', {
-        view: window,
+      setTimeout(() => {
+        const pointerdownEvent = new PointerEvent('pointerdown', {
+          view: window,
+          bubbles: true,
+          cancelable: true,
+          clientX: centerX,
+          clientY: centerY,
+          screenX: centerX + window.screenX,
+          screenY: centerY + window.screenY,
+          pointerId: 1,
+          pointerType: 'mouse',
+          button: 0,
+          buttons: 1,
+          isTrusted: true
+        });
+        element.dispatchEvent(pointerdownEvent);
+
+        setTimeout(() => {
+          const pointerupEvent = new PointerEvent('pointerup', {
+            view: window,
+            bubbles: true,
+            cancelable: true,
+            clientX: centerX,
+            clientY: centerY,
+            screenX: centerX + window.screenX,
+            screenY: centerY + window.screenY,
+            pointerId: 1,
+            pointerType: 'mouse',
+            button: 0,
+            buttons: 0,
+            isTrusted: true
+          });
+          element.dispatchEvent(pointerupEvent);
+        }, 50 + Math.random() * 30);
+      }, 10 + Math.random() * 20);
+    } catch (e) {
+      console.log(`[BetAutomation] Method 3 failed:`, e);
+    }
+    
+    // Method 4: Try focus and enter key (for some interactive elements)
+    try {
+      console.log(`[BetAutomation] Method 4: Focus and Enter key`);
+      element.focus();
+      const enterEvent = new KeyboardEvent('keydown', {
+        key: 'Enter',
+        code: 'Enter',
+        keyCode: 13,
+        which: 13,
         bubbles: true,
         cancelable: true,
-        clientX: centerX,
-        clientY: centerY,
-        pointerId: 1,
-        pointerType: 'mouse',
+        isTrusted: true
       });
-      element.dispatchEvent(pointerupEvent);
-    } catch (e) {}
+      element.dispatchEvent(enterEvent);
+    } catch (e) {
+      console.log(`[BetAutomation] Method 4 failed:`, e);
+    }
+    
+    // Method 5: Try triggering game-specific event handlers
+    try {
+      console.log(`[BetAutomation] Method 5: Game-specific events`);
+      
+      // Try to trigger any custom event handlers the game might be listening for
+      const customEvents = ['bet', 'chip', 'select', 'choose', 'pick', 'place'];
+      
+      customEvents.forEach(eventName => {
+        const customEvent = new CustomEvent(eventName, {
+          bubbles: true,
+          cancelable: true,
+          detail: { amount: element.dataset.amount || element.textContent }
+        });
+        element.dispatchEvent(customEvent);
+      });
+      
+      // Try to trigger touch events (some games use touch handlers)
+      const touchStartEvent = new TouchEvent('touchstart', {
+        bubbles: true,
+        cancelable: true,
+        touches: [{
+          clientX: element.getBoundingClientRect().left + element.getBoundingClientRect().width / 2,
+          clientY: element.getBoundingClientRect().top + element.getBoundingClientRect().height / 2,
+          identifier: 1
+        }]
+      });
+      element.dispatchEvent(touchStartEvent);
+      
+      setTimeout(() => {
+        const touchEndEvent = new TouchEvent('touchend', {
+          bubbles: true,
+          cancelable: true,
+          changedTouches: [{
+            clientX: element.getBoundingClientRect().left + element.getBoundingClientRect().width / 2,
+            clientY: element.getBoundingClientRect().top + element.getBoundingClientRect().height / 2,
+            identifier: 1
+          }]
+        });
+        element.dispatchEvent(touchEndEvent);
+      }, 50);
+      
+    } catch (e) {
+      console.log(`[BetAutomation] Method 5 failed:`, e);
+    }
+    
+    // Method 6: Try to trigger game's internal functions directly
+    try {
+      console.log(`[BetAutomation] Method 6: Direct function calls`);
+      
+      // Try to find and call game's internal betting functions
+      const gameFunctions = [
+        'selectChip', 'chooseChip', 'pickChip', 'placeBet', 'bet',
+        'onChipClick', 'chipClick', 'selectAmount', 'chooseAmount'
+      ];
+      
+      // Check if any of these functions exist in the global scope
+      gameFunctions.forEach(funcName => {
+        if (typeof window[funcName] === 'function') {
+          console.log(`[BetAutomation] Found game function: ${funcName}`);
+          try {
+            // Try to call the function with the element or amount
+            const amount = element.dataset.amount || element.textContent || element.getAttribute('value');
+            if (amount) {
+              window[funcName](parseInt(amount), element);
+            } else {
+              window[funcName](element);
+            }
+          } catch (e) {
+            console.log(`[BetAutomation] Function ${funcName} call failed:`, e);
+          }
+        }
+      });
+      
+      // Try to trigger any event listeners attached to the element
+      if (element._listeners) {
+        console.log(`[BetAutomation] Found element listeners:`, element._listeners);
+        // This is a fallback - most modern frameworks don't expose listeners this way
+      }
+      
+    } catch (e) {
+      console.log(`[BetAutomation] Method 6 failed:`, e);
+    }
   }
 
   // Function to find clickable element within betting area
@@ -943,6 +1126,9 @@
         if (chipButton) {
           // Exact chip exists, use original logic
           console.log(`[BetAutomation] About to click chip: ${amount}`);
+          console.log(`[BetAutomation] Chip element:`, chipButton);
+          console.log(`[BetAutomation] Chip classes:`, chipButton.className);
+          console.log(`[BetAutomation] Chip attributes:`, chipButton.attributes);
           
           // Check if chip is enabled (different logic for different platforms)
           let isDisabled = false;
@@ -951,6 +1137,8 @@
           } else if (isNewPlatform) {
             isDisabled = chipButton.classList.contains('disabled') || chipButton.hasAttribute('disabled');
           }
+          
+          console.log(`[BetAutomation] Chip disabled status:`, isDisabled);
           
           if (isDisabled) {
             chrome.runtime.sendMessage({
@@ -980,9 +1168,14 @@
           await sleep(300);
           
           // Click bet area with visual effect
+          console.log(`[BetAutomation] Bet area element:`, betArea);
+          console.log(`[BetAutomation] Bet area classes:`, betArea.className);
+          console.log(`[BetAutomation] Bet area attributes:`, betArea.attributes);
+          
           const clickTarget = findClickableElement(betArea, side);
           if (clickTarget) {
             console.log(`[BetAutomation] Clicking bet area: ${side}`);
+            console.log(`[BetAutomation] Click target:`, clickTarget);
             simulateClick(clickTarget);
           } else {
             console.log(`[BetAutomation] Clicking bet area (fallback): ${side}`);
@@ -1259,22 +1452,11 @@
     return false;
   }
 
-  // Monitor for betting results (this would need to be customized based on the actual casino site)
+  // Monitor for betting results (placeholder for future enhancements)
   function monitorBettingResults() {
-    // This is a placeholder - you would need to implement actual result detection
-    // based on the specific casino platform's UI
-
-    const observer = new MutationObserver((mutations) => {
-      // Look for result notifications, win/lose indicators, etc.
-      // This would be highly specific to the casino platform
-    });
-
-    // Start observing the document for changes
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-    });
+    console.log('[BetAutomation] Betting result monitoring initialized');
+    // This is a placeholder for future result monitoring features
+    // The game itself handles balance updates when bets are placed
   }
 
   // Initialize monitoring when the page loads
