@@ -42,7 +42,6 @@ function verifyToken(token) {
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const WS_PORT = process.env.WS_PORT || 8080;
 
 // Middleware
 app.use(cors());
@@ -63,7 +62,7 @@ app.get('/', (req, res) => {
 const server = require('http').createServer(app);
 
 // WebSocket server attached to HTTP server for Railway compatibility
-const wss = new WebSocket.Server({ port: WS_PORT });
+const wss = new WebSocket.Server({ server });
 
 // Store connected clients
 const clients = new Map();
@@ -956,6 +955,17 @@ app.get('/api/user/license', (req, res) => {
     licenseEndDate: licenseEndDate,
     isExpired,
     status: isExpired ? 'Expired' : 'Active'
+  });
+});
+
+// Export all user data (including password hashes) for backup - Admin only
+app.get('/api/export-users', authAdmin, (req, res) => {
+  res.json({
+    success: true,
+    users: USERS,
+    exportTime: new Date().toISOString(),
+    totalUsers: Object.keys(USERS).length,
+    exportedBy: req.authUser
   });
 });
 
