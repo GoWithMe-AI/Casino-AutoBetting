@@ -286,7 +286,7 @@ wss.on('connection', (ws, req) => {
           const oppositePC = data.pc === 'PC1' ? 'PC2' : 'PC1';
           if (activeBet[oppositePC] && activeBet[oppositePC].status === 'pending') {
             console.log(`Cancelling bet on ${oppositePC} due to failure on ${data.pc}`);
-            sendCancelBet(oppositePC, data.platform, data.amount, data.side, room);
+            sendCancelBet(oppositePC, data.platform, data.amount, activeBet[oppositePC].side, room);
             activeBet[oppositePC] = { status: 'cancelled', reason: `Cancelled due to failure on ${data.pc}` };
           }
           
@@ -606,8 +606,8 @@ app.post('/api/bet', (req, res) => {
 
   const selectedPC = pc;
   const oppositePC = pc === 'PC1' ? 'PC2' : 'PC1';
-  // Both PCs should bet on the same side, not opposite sides
-  const sameSide = side;
+  // Opposite PC should bet on the opposite side
+  const oppositeSide = side === 'player' ? 'banker' : 'player';
 
   let sentCount = 0;
   const room = getRoom(user);
@@ -645,20 +645,20 @@ app.post('/api/bet', (req, res) => {
   const betId = `${user}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const betState = {
     betId,
-    PC1: { status: 'pending', startTime: Date.now() },
-    PC2: { status: 'pending', startTime: Date.now() },
+    PC1: { status: 'pending', startTime: Date.now(), side: selectedPC === 'PC1' ? side : oppositeSide },
+    PC2: { status: 'pending', startTime: Date.now(), side: selectedPC === 'PC2' ? side : oppositeSide },
     platform,
     amount,
-    side,
-    sameSide
+    originalSide: side,
+    oppositeSide: oppositeSide,
   };
   
   activeBets.set(room.id, betState);
   console.log(`Started tracking bet ${betId} for room ${room.id}`);
 
-  // Send to both PCs with the same side
+  // Send to both PCs with opposite sides
   sendBetToPC(selectedPC, side);
-  sendBetToPC(oppositePC, sameSide);
+  sendBetToPC(oppositePC, oppositeSide);
 
   if (sentCount === 2) {
     // Set up timeout to handle unresponsive PCs
@@ -671,7 +671,7 @@ app.post('/api/bet', (req, res) => {
           console.log(`PC1 timed out for bet ${betId}, cancelling PC2 if still pending`);
           currentBet.PC1 = { status: 'timeout', reason: 'No response within timeout period' };
           if (currentBet.PC2.status === 'pending') {
-            sendCancelBet('PC2', platform, amount, side, room);
+            sendCancelBet('PC2', platform, amount, currentBet.PC2.side, room);
             currentBet.PC2 = { status: 'cancelled', reason: 'Cancelled due to PC1 timeout' };
           }
         }
@@ -679,7 +679,7 @@ app.post('/api/bet', (req, res) => {
           console.log(`PC2 timed out for bet ${betId}, cancelling PC1 if still pending`);
           currentBet.PC2 = { status: 'timeout', reason: 'No response within timeout period' };
           if (currentBet.PC1.status === 'pending') {
-            sendCancelBet('PC1', platform, amount, side, room);
+            sendCancelBet('PC1', platform, amount, currentBet.PC1.side, room);
             currentBet.PC1 = { status: 'cancelled', reason: 'Cancelled due to PC2 timeout' };
           }
         }
