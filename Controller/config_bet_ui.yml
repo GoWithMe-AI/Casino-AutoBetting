@@ -1,8 +1,8 @@
-version: 2
-authtoken: 2z4dH5YTvNV3RwxcRYO9S6zYH7z_3oLDHnnQUYW6kXiCfcNKR
-region: us
+version: 3
+agent:
+    authtoken: 33ioPVOouTP652NoAjIG6LSmZhR_rUvyekhJcyEJmSfyMzzZ
 tunnels:
   web:
     proto: http
     addr: 3000
-    hostname: absolutely-stirring-racer.ngrok-free.app
+    hostname: laboratorially-hypnotistic-karly.ngrok-free.dev
