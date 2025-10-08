@@ -607,7 +607,10 @@ app.post('/api/bet', (req, res) => {
   const selectedPC = pc;
   const oppositePC = pc === 'PC1' ? 'PC2' : 'PC1';
   // Opposite PC should bet on the opposite side
-  const oppositeSide = side === 'player' ? 'banker' : 'player';
+  // Handle both lowercase and capitalized side values
+  const oppositeSide = (side === 'player' || side === 'Player') ? 'Banker' : 'Player';
+  
+  console.log(`Simultaneous betting: ${selectedPC} will bet on ${side}, ${oppositePC} will bet on ${oppositeSide}`);
 
   let sentCount = 0;
   const room = getRoom(user);
@@ -630,8 +633,10 @@ app.post('/api/bet', (req, res) => {
   };
 
   if (single) {
+    // Normalize side to capitalized format for extension compatibility
+    const normalizedSide = (side === 'player' || side === 'Player') ? 'Player' : 'Banker';
     // Bet only on the selected PC
-    sendBetToPC(selectedPC, side);
+    sendBetToPC(selectedPC, normalizedSide);
 
     if (sentCount === 1) {
       res.json({ success: true, message: `Bet command sent to ${selectedPC}` });
@@ -641,15 +646,20 @@ app.post('/api/bet', (req, res) => {
     return;
   }
 
+  // Normalize side to capitalized format for extension compatibility
+  const normalizedSide = (side === 'player' || side === 'Player') ? 'Player' : 'Banker';
+  
+  console.log(`Normalized sides: ${selectedPC}=${normalizedSide}, ${oppositePC}=${oppositeSide}`);
+  
   // For simultaneous betting, track the bet state
   const betId = `${user}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const betState = {
     betId,
-    PC1: { status: 'pending', startTime: Date.now(), side: selectedPC === 'PC1' ? side : oppositeSide },
-    PC2: { status: 'pending', startTime: Date.now(), side: selectedPC === 'PC2' ? side : oppositeSide },
+    PC1: { status: 'pending', startTime: Date.now(), side: selectedPC === 'PC1' ? normalizedSide : oppositeSide },
+    PC2: { status: 'pending', startTime: Date.now(), side: selectedPC === 'PC2' ? normalizedSide : oppositeSide },
     platform,
     amount,
-    originalSide: side,
+    originalSide: normalizedSide,
     oppositeSide: oppositeSide,
   };
   
@@ -657,7 +667,7 @@ app.post('/api/bet', (req, res) => {
   console.log(`Started tracking bet ${betId} for room ${room.id}`);
 
   // Send to both PCs with opposite sides
-  sendBetToPC(selectedPC, side);
+  sendBetToPC(selectedPC, normalizedSide);
   sendBetToPC(oppositePC, oppositeSide);
 
   if (sentCount === 2) {
