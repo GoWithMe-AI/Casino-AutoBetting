@@ -395,7 +395,9 @@ function connectStatusWebSocket() {
           break;
         case 'not_betting_time':
           userMessage = `${data.pc}: Not betting time - ${data.message}`;
-          break;
+          // Don't treat this as an error, just info
+          addLog(userMessage, 'info');
+          return;
         default:
           userMessage = `${data.pc}: ${data.message}`;
       }
@@ -773,7 +775,11 @@ placeBetBtn.addEventListener('click', async () => {
       addLog(`Failed to place bet: ${result.message}`, 'error');
     }
   } catch (error) {
-    addLog(`Error placing bet: ${error.message}`, 'error');
+    if (error.message.includes('Failed to fetch')) {
+      addLog(`Network error placing bet: Check server connection`, 'error');
+    } else {
+      addLog(`Error placing bet: ${error.message}`, 'error');
+    }
   }
 });
 
@@ -804,14 +810,18 @@ placeBetPc1Btn.addEventListener('click', async () => {
     const result = await response.json();
     if (result.success) {
       addLog(
-        `Bet placed: PC1 - ${formatAmount(state.amount)} on ${state.side}`,
-        'success',
+        `Bet command sent to PC1 - ${formatAmount(state.amount)} on ${state.side}`,
+        'info',
       );
     } else {
       addLog(`Failed to place bet (PC1): ${result.message}`, 'error');
     }
   } catch (error) {
-    addLog(`Error placing bet (PC1): ${error.message}`, 'error');
+    if (error.message.includes('Failed to fetch')) {
+      addLog(`Network error placing bet (PC1): Check server connection`, 'error');
+    } else {
+      addLog(`Error placing bet (PC1): ${error.message}`, 'error');
+    }
   }
 });
 
@@ -842,14 +852,18 @@ placeBetPc2Btn.addEventListener('click', async () => {
     const result = await response.json();
     if (result.success) {
       addLog(
-        `Bet placed: PC2 - ${formatAmount(state.amount)} on ${state.side}`,
-        'success',
+        `Bet command sent to PC2 - ${formatAmount(state.amount)} on ${state.side}`,
+        'info',
       );
     } else {
       addLog(`Failed to place bet (PC2): ${result.message}`, 'error');
     }
   } catch (error) {
-    addLog(`Error placing bet (PC2): ${error.message}`, 'error');
+    if (error.message.includes('Failed to fetch')) {
+      addLog(`Network error placing bet (PC2): Check server connection`, 'error');
+    } else {
+      addLog(`Error placing bet (PC2): ${error.message}`, 'error');
+    }
   }
 });
 

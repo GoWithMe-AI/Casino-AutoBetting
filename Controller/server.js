@@ -293,7 +293,8 @@ wss.on('connection', (ws, req) => {
           // Clean up the bet tracking after a short delay
           setTimeout(() => {
             activeBets.delete(room.id);
-            console.log(`Cleaned up bet tracking for room ${room.id}`);
+            accumulatedBets.delete(room.id);
+            console.log(`Cleaned up bet tracking and accumulated bets for room ${room.id}`);
           }, 5000);
         } else {
           // For single PC bets, don't automatically cancel the opposite PC
@@ -437,7 +438,9 @@ wss.on('connection', (ws, req) => {
             
             // Clean up the bet tracking
             activeBets.delete(room.id);
-            console.log(`Cleaned up bet tracking for room ${room.id}`);
+            // Reset accumulated bets for this room
+            accumulatedBets.delete(room.id);
+            console.log(`Cleaned up bet tracking and accumulated bets for room ${room.id}`);
           }
         }
       }
@@ -598,32 +601,39 @@ setInterval(() => {
 // Track active bets for each room
 const activeBets = new Map(); // roomId -> { betId, PC1: { status, startTime }, PC2: { status, startTime } }
 
+// Track accumulated bet amounts for each PC in each room
+const accumulatedBets = new Map(); // roomId -> { PC1: { totalAmount, side }, PC2: { totalAmount, side } }
+
 // API endpoint to send bet command
 app.post('/api/bet', (req, res) => {
   const { platform, pc, amount, side, single = false, user } = req.body;
 
-  console.log('Bet request:', { platform, pc, amount, side });
+  console.log('Bet request:', { platform, pc, amount, side, single });
 
   const selectedPC = pc;
-  const oppositePC = pc === 'PC1' ? 'PC2' : 'PC1';
-  // Opposite PC should bet on the opposite side
-  // Handle both lowercase and capitalized side values
-  const oppositeSide = (side === 'player' || side === 'Player') ? 'Banker' : 'Player';
   
-  console.log(`Simultaneous betting: ${selectedPC} will bet on ${side}, ${oppositePC} will bet on ${oppositeSide}`);
+  if (single) {
+    // Single PC betting - no opposite side calculation needed
+    console.log(`Single PC betting: ${selectedPC} will bet on ${side}`);
+  } else {
+    // Simultaneous betting - calculate opposite side
+    const oppositePC = pc === 'PC1' ? 'PC2' : 'PC1';
+    const oppositeSide = (side === 'player' || side === 'Player') ? 'Banker' : 'Player';
+    console.log(`Simultaneous betting: ${selectedPC} will bet on ${side}, ${oppositePC} will bet on ${oppositeSide}`);
+  }
 
   let sentCount = 0;
   const room = getRoom(user);
 
   // Helper to send bet to a specific PC
-  const sendBetToPC = (targetPC, targetSide) => {
+  const sendBetToPC = (targetPC, targetSide, targetAmount = amount) => {
     room.clients.forEach((client) => {
       if (client.pc === targetPC && client.ws.readyState === WebSocket.OPEN) {
         client.ws.send(
           JSON.stringify({
             type: 'placeBet',
             platform,
-            amount,
+            amount: targetAmount,
             side: targetSide,
           }),
         );
@@ -646,17 +656,44 @@ app.post('/api/bet', (req, res) => {
     return;
   }
 
+  // For simultaneous betting, calculate opposite side and PC
+  const oppositePC = pc === 'PC1' ? 'PC2' : 'PC1';
+  const oppositeSide = (side === 'player' || side === 'Player') ? 'Banker' : 'Player';
+  
   // Normalize side to capitalized format for extension compatibility
   const normalizedSide = (side === 'player' || side === 'Player') ? 'Player' : 'Banker';
   
   console.log(`Normalized sides: ${selectedPC}=${normalizedSide}, ${oppositePC}=${oppositeSide}`);
   
+  // Initialize or get accumulated bets for this room
+  if (!accumulatedBets.has(room.id)) {
+    accumulatedBets.set(room.id, {
+      PC1: { totalAmount: 0, side: null },
+      PC2: { totalAmount: 0, side: null }
+    });
+  }
+  
+  const accumulated = accumulatedBets.get(room.id);
+  
+  // Update accumulated amounts and sides
+  accumulated.PC1.totalAmount += (selectedPC === 'PC1') ? amount : 0;
+  accumulated.PC1.side = (selectedPC === 'PC1') ? normalizedSide : accumulated.PC1.side;
+  
+  accumulated.PC2.totalAmount += (selectedPC === 'PC2') ? amount : 0;
+  accumulated.PC2.side = (selectedPC === 'PC2') ? normalizedSide : accumulated.PC2.side;
+  
+  // For the opposite PC, add the amount and set the opposite side
+  accumulated[oppositePC].totalAmount += amount;
+  accumulated[oppositePC].side = oppositeSide;
+  
+  console.log(`Accumulated amounts: PC1=${accumulated.PC1.totalAmount} (${accumulated.PC1.side}), PC2=${accumulated.PC2.totalAmount} (${accumulated.PC2.side})`);
+  
   // For simultaneous betting, track the bet state
   const betId = `${user}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   const betState = {
     betId,
-    PC1: { status: 'pending', startTime: Date.now(), side: selectedPC === 'PC1' ? normalizedSide : oppositeSide },
-    PC2: { status: 'pending', startTime: Date.now(), side: selectedPC === 'PC2' ? normalizedSide : oppositeSide },
+    PC1: { status: 'pending', startTime: Date.now(), side: accumulated.PC1.side, totalAmount: accumulated.PC1.totalAmount },
+    PC2: { status: 'pending', startTime: Date.now(), side: accumulated.PC2.side, totalAmount: accumulated.PC2.totalAmount },
     platform,
     amount,
     originalSide: normalizedSide,
@@ -666,9 +703,9 @@ app.post('/api/bet', (req, res) => {
   activeBets.set(room.id, betState);
   console.log(`Started tracking bet ${betId} for room ${room.id}`);
 
-  // Send to both PCs with opposite sides
-  sendBetToPC(selectedPC, normalizedSide);
-  sendBetToPC(oppositePC, oppositeSide);
+  // Send accumulated amounts to both PCs
+  sendBetToPC(selectedPC, normalizedSide, accumulated[selectedPC].totalAmount);
+  sendBetToPC(oppositePC, oppositeSide, accumulated[oppositePC].totalAmount);
 
   if (sentCount === 2) {
     // Set up timeout to handle unresponsive PCs
@@ -697,7 +734,8 @@ app.post('/api/bet', (req, res) => {
         // Clean up after timeout
         setTimeout(() => {
           activeBets.delete(room.id);
-          console.log(`Cleaned up timed out bet tracking for room ${room.id}`);
+          accumulatedBets.delete(room.id);
+          console.log(`Cleaned up timed out bet tracking and accumulated bets for room ${room.id}`);
         }, 2000);
       }
     }, timeoutDuration);
@@ -774,7 +812,9 @@ app.post('/api/cancelBetAll', (req, res) => {
       
       // Clean up the active bet tracking immediately
       activeBets.delete(room.id);
-      console.log(`Cleaned up active bet tracking for user ${user}`);
+      // Reset accumulated bets for this user
+      accumulatedBets.delete(room.id);
+      console.log(`Cleaned up active bet tracking and accumulated bets for user ${user}`);
     }
     
     // Send cancel commands to all connected PCs
