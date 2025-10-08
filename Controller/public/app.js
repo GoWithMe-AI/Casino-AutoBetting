@@ -439,6 +439,20 @@ function connectStatusWebSocket() {
     } else if (data.type === 'confirmClicked') {
       // Handle confirm button click notification
       addLog(`${data.pc}: ${data.message}`, 'info');
+    } else if (data.type === 'betCancelled') {
+      // Handle bet cancellation notification
+      addLog(`Bet cancelled on ${data.pc}: ${data.message}`, 'info');
+      
+      // Reset bet session if we're in an active session
+      if (state.isBetSessionActive) {
+        state.isBetSessionActive = false;
+        state.currentBetResults = {
+          PC1: null,
+          PC2: null,
+          betId: null
+        };
+        addLog('Bet session ended due to cancellation', 'info');
+      }
     }
   };
 
@@ -929,6 +943,18 @@ addLog('Platform: Pragmatic only', 'info');
 cancelAllBtn.addEventListener('click', async () => {
   // Add visual click effect
   addClickEffect(cancelAllBtn);
+  
+  // Reset bet session state immediately when cancel is clicked
+  if (state.isBetSessionActive) {
+    console.log('[BetAutomation] Cancelling active bet session');
+    state.isBetSessionActive = false;
+    state.currentBetResults = {
+      PC1: null,
+      PC2: null,
+      betId: null
+    };
+    addLog('Bet session cancelled by user', 'info');
+  }
   
   try {
     const response = await fetch('/api/cancelBetAll', {

@@ -758,7 +758,26 @@ app.post('/api/cancelBetAll', (req, res) => {
   
   if (user) {
     const room = getRoom(user);
-    // Only send cancel to connected PCs
+    
+    // Clean up any active bet tracking for this user
+    const activeBet = activeBets.get(room.id);
+    if (activeBet) {
+      console.log(`Cancelling active bet ${activeBet.betId} for user ${user}`);
+      
+      // Mark all pending bets as cancelled
+      if (activeBet.PC1 && activeBet.PC1.status === 'pending') {
+        activeBet.PC1 = { status: 'cancelled', reason: 'User cancelled via cancel button' };
+      }
+      if (activeBet.PC2 && activeBet.PC2.status === 'pending') {
+        activeBet.PC2 = { status: 'cancelled', reason: 'User cancelled via cancel button' };
+      }
+      
+      // Clean up the active bet tracking immediately
+      activeBets.delete(room.id);
+      console.log(`Cleaned up active bet tracking for user ${user}`);
+    }
+    
+    // Send cancel commands to all connected PCs
     room.clients.forEach((client) => {
       if (client.ws.readyState === WebSocket.OPEN) {
         if (sendCancelBet(client.pc, '', null, '', room)) {
@@ -769,6 +788,13 @@ app.post('/api/cancelBetAll', (req, res) => {
   } else {
     // no user specified: broadcast to every room (admin scenario)
     rooms.forEach((room) => {
+      // Clean up active bets for all rooms
+      const activeBet = activeBets.get(room.id);
+      if (activeBet) {
+        console.log(`Admin cancelling active bet ${activeBet.betId}`);
+        activeBets.delete(room.id);
+      }
+      
       room.clients.forEach((client) => {
         if (client.ws.readyState === WebSocket.OPEN) {
           if (sendCancelBet(client.pc, '', null, '', room)) {
