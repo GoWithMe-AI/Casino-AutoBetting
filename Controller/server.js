@@ -347,6 +347,7 @@ wss.on('connection', (ws, req) => {
         });
       }
 
+
       // Handle confirm button clicked
       if (data.type === 'confirmClicked') {
         console.log(`Confirm button clicked on ${data.pc}: ${data.message}`);
@@ -604,6 +605,7 @@ const activeBets = new Map(); // roomId -> { betId, PC1: { status, startTime }, 
 // Track accumulated bet amounts for each PC in each room
 const accumulatedBets = new Map(); // roomId -> { PC1: { totalAmount, side }, PC2: { totalAmount, side } }
 
+
 // API endpoint to send bet command
 app.post('/api/bet', (req, res) => {
   const { platform, pc, amount, side, single = false, user } = req.body;
@@ -641,6 +643,7 @@ app.post('/api/bet', (req, res) => {
       }
     });
   };
+
 
   if (single) {
     // Normalize side to capitalized format for extension compatibility
@@ -772,6 +775,7 @@ function sendCancelBet(targetPC, platform = '', amount = null, side = '', room) 
   
   return sent;
 }
+
 
 // API endpoint to get connection status
 app.get('/api/status', (req, res) => {
