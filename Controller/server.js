@@ -69,7 +69,7 @@ const clients = new Map();
 const assignedPCs = new Set(); // Track which PC names are assigned
 const statusListeners = new Set(); // Track connections that want status updates
 const adminConnections = new Set(); // Track admin WebSocket connections
-const HEARTBEAT_INTERVAL = 10000; // 10 seconds
+const HEARTBEAT_INTERVAL = 30000; // 30 seconds - more tolerant
 
 // New: room structure per user
 const rooms = new Map(); // user -> {clients,map}
@@ -758,19 +758,29 @@ function broadcastUserStatusChange(username, isOnline) {
   });
 }
 
-// Ping loop to ensure connections are alive
+// Ping loop to ensure connections are alive - more tolerant
 setInterval(() => {
   rooms.forEach((room, user) => {
     room.clients.forEach((client, id) => {
       if (client.ws.readyState !== WebSocket.OPEN) return;
 
+      // More tolerant heartbeat - only terminate if missed multiple times
       if (client.isAlive === false) {
-        console.log(`Heartbeat missed from ${client.pc}, terminating connection`);
-        client.ws.terminate();
-        room.clients.delete(id);
-        room.assignedPCs.delete(client.pc);
-        broadcastStatus(room);
-        return;
+        // Give it one more chance before terminating
+        if (!client.missedHeartbeats) {
+          client.missedHeartbeats = 1;
+          console.log(`First heartbeat missed from ${client.pc}, giving another chance`);
+        } else {
+          console.log(`Multiple heartbeats missed from ${client.pc}, terminating connection`);
+          client.ws.terminate();
+          room.clients.delete(id);
+          room.assignedPCs.delete(client.pc);
+          broadcastStatus(room);
+          return;
+        }
+      } else {
+        // Reset missed heartbeats counter on successful pong
+        client.missedHeartbeats = 0;
       }
 
       client.isAlive = false; // will be set true on pong
@@ -778,6 +788,7 @@ setInterval(() => {
         client.ws.send(JSON.stringify({ type: 'ping' }));
       } catch (err) {
         console.error('Failed to send ping', err);
+        // Don't immediately terminate on send error, let the connection close naturally
       }
     });
   });

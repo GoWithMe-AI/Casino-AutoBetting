@@ -294,13 +294,42 @@ const WS_BASE = 'ws://localhost:8080';
 // Initialize WebSocket connection for status updates
 let statusWs = null;
 let reconnectTimeout = null;
+let reconnectAttempts = 0;
+let maxReconnectAttempts = 10;
+let reconnectDelay = 1000; // Start with 1 second
+let isConnecting = false;
+let lastPingTime = Date.now();
+let connectionQuality = 'good';
 
 function connectStatusWebSocket() {
-  statusWs = new WebSocket(WS_BASE);
+  // Prevent multiple connection attempts
+  if (isConnecting || (statusWs && statusWs.readyState === WebSocket.OPEN)) {
+    console.log('WebSocket already connecting or connected');
+    return;
+  }
+
+  isConnecting = true;
+  console.log(`Attempting WebSocket connection (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+  
+  try {
+    statusWs = new WebSocket(WS_BASE);
+  } catch (error) {
+    console.error('Failed to create WebSocket:', error);
+    isConnecting = false;
+    scheduleReconnect();
+    return;
+  }
 
   statusWs.onopen = () => {
     console.log('Socket open');
+    isConnecting = false;
+    reconnectAttempts = 0;
+    reconnectDelay = 1000; // Reset delay
+    connectionQuality = 'good';
+    lastPingTime = Date.now();
+    
     addLog('Connected to controller server', 'success');
+    
     // Clear any reconnect timeout
     if (reconnectTimeout) {
       clearTimeout(reconnectTimeout);
@@ -323,6 +352,15 @@ function connectStatusWebSocket() {
   statusWs.onmessage = (event) => {
     const data = JSON.parse(event.data);
     console.log('onmessage', data);
+
+    // Handle ping/pong for connection health
+    if (data.type === 'ping') {
+      lastPingTime = Date.now();
+      if (statusWs && statusWs.readyState === WebSocket.OPEN) {
+        statusWs.send(JSON.stringify({ type: 'pong' }));
+      }
+      return;
+    }
 
     if (data.type === 'status') {
       updateConnectionStatus(data.connectedPCs);
@@ -470,22 +508,80 @@ function connectStatusWebSocket() {
     }
   };
 
-  statusWs.onclose = () => {
-    addLog('Disconnected from controller server', 'error');
+  statusWs.onclose = (event) => {
+    console.log('WebSocket closed:', event.code, event.reason);
+    isConnecting = false;
+    
+    // Only log disconnection if it wasn't intentional
+    if (event.code !== 1000) { // 1000 = normal closure
+      addLog(`Disconnected from controller server (Code: ${event.code})`, 'error');
+    }
+    
     // Reset connection status
     updateConnectionStatus({ PC1: false, PC2: false });
 
-    // Attempt to reconnect after 3 seconds
-    reconnectTimeout = setTimeout(() => {
-      addLog('Attempting to reconnect...', 'info');
-      connectStatusWebSocket();
-    }, 3000);
+    // Don't reconnect if we've exceeded max attempts
+    if (reconnectAttempts >= maxReconnectAttempts) {
+      addLog('Max reconnection attempts reached. Please refresh the page.', 'error');
+      return;
+    }
+
+    // Schedule reconnection with exponential backoff
+    scheduleReconnect();
   };
 
   statusWs.onerror = (error) => {
-    addLog('WebSocket error', 'error');
+    console.error('WebSocket error:', error);
+    isConnecting = false;
+    connectionQuality = 'poor';
+    addLog('WebSocket connection error', 'error');
   };
 }
+
+// Schedule reconnection with exponential backoff
+function scheduleReconnect() {
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
+  }
+
+  reconnectAttempts++;
+  
+  // Calculate delay with exponential backoff (max 30 seconds)
+  const delay = Math.min(reconnectDelay * Math.pow(2, reconnectAttempts - 1), 30000);
+  
+  console.log(`Scheduling reconnection in ${delay}ms (attempt ${reconnectAttempts}/${maxReconnectAttempts})`);
+  
+  reconnectTimeout = setTimeout(() => {
+    if (reconnectAttempts <= maxReconnectAttempts) {
+      addLog(`Attempting to reconnect... (${reconnectAttempts}/${maxReconnectAttempts})`, 'info');
+      connectStatusWebSocket();
+    }
+  }, delay);
+}
+
+// Monitor connection quality
+function monitorConnectionQuality() {
+  if (statusWs && statusWs.readyState === WebSocket.OPEN) {
+    const timeSinceLastPing = Date.now() - lastPingTime;
+    
+    // If no ping received for 30 seconds, consider connection poor
+    if (timeSinceLastPing > 30000) {
+      if (connectionQuality !== 'poor') {
+        connectionQuality = 'poor';
+        console.log('Connection quality degraded - no ping received for 30+ seconds');
+        addLog('Connection quality degraded', 'warning');
+      }
+    } else if (timeSinceLastPing < 15000) {
+      if (connectionQuality !== 'good') {
+        connectionQuality = 'good';
+        console.log('Connection quality improved');
+      }
+    }
+  }
+}
+
+// Start connection quality monitoring
+setInterval(monitorConnectionQuality, 5000); // Check every 5 seconds
 
 // Update connection status
 function updateConnectionStatus(connectedPCs) {
@@ -509,9 +605,48 @@ function updateConnectionStatus(connectedPCs) {
     pc2Status.classList.remove('connected');
   }
 
+  // Update connection quality indicator
+  updateConnectionQualityIndicator();
+
   // Update bet button state
   updateBetButton();
   updateCancelAllBtn();
+}
+
+// Update connection quality indicator
+function updateConnectionQualityIndicator() {
+  // Find or create connection quality indicator
+  let qualityIndicator = document.getElementById('connection-quality');
+  if (!qualityIndicator) {
+    qualityIndicator = document.createElement('div');
+    qualityIndicator.id = 'connection-quality';
+    qualityIndicator.style.cssText = `
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      padding: 5px 10px;
+      border-radius: 3px;
+      font-size: 12px;
+      z-index: 1000;
+    `;
+    document.body.appendChild(qualityIndicator);
+  }
+
+  if (statusWs && statusWs.readyState === WebSocket.OPEN) {
+    if (connectionQuality === 'good') {
+      qualityIndicator.textContent = '🟢 Connection Good';
+      qualityIndicator.style.backgroundColor = '#4caf50';
+      qualityIndicator.style.color = 'white';
+    } else if (connectionQuality === 'poor') {
+      qualityIndicator.textContent = '🟡 Connection Poor';
+      qualityIndicator.style.backgroundColor = '#ff9800';
+      qualityIndicator.style.color = 'white';
+    }
+  } else {
+    qualityIndicator.textContent = '🔴 Disconnected';
+    qualityIndicator.style.backgroundColor = '#f44336';
+    qualityIndicator.style.color = 'white';
+  }
 }
 
 // Platform switch handler (removed - only Pragmatic)
