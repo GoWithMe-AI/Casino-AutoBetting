@@ -11,6 +11,35 @@
 
   // Activation state toggled by background script
   let isActive = false;
+  
+  // Iframe detection and communication
+  let isIframe = window !== window.top;
+  let frameId = null;
+  
+  // Log iframe status for debugging
+  if (isIframe) {
+    console.log('[BetAutomation] Running in iframe:', window.location.href);
+  } else {
+    console.log('[BetAutomation] Running in main frame:', window.location.href);
+  }
+  
+  // Report iframe status to background script
+  function reportFrameStatus() {
+    try {
+      chrome.runtime.sendMessage({
+        type: 'frameStatus',
+        isIframe: isIframe,
+        url: window.location.href,
+        hasBettingUI: isBettingFrame() === true,
+        timestamp: Date.now()
+      });
+    } catch (err) {
+      console.log('[BetAutomation] Failed to report frame status:', err?.message);
+    }
+  }
+  
+  // Report status when activated
+  setTimeout(reportFrameStatus, 1000);
 
   // Helper – check if this frame actually contains the betting UI
   function isBettingFrame() {
@@ -140,13 +169,19 @@
   }
 
   // Listen for bet commands from background script
-  chrome.runtime.onMessage.addListener((request) => {
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    // Handle iframe-specific messages
+    if (request.frameId && isIframe) {
+      // This message is targeted to a specific frame
+      console.log('[BetAutomation] Received frame-specific message:', request.type, 'in iframe');
+    }
+    
     switch (request.type) {
       case 'activateBetAutomation':
         // Always mark active on activation; processing remains gated by canProcessBetting()
         isActive = true;
         const activateBettingFrameResult = isBettingFrame();
-        console.log("[BetAutomation] Activated - bettingResult:", activateBettingFrameResult, "isActive:", isActive, "CanProcess:", canProcessBetting());
+        console.log("[BetAutomation] Activated - bettingResult:", activateBettingFrameResult, "isActive:", isActive, "CanProcess:", canProcessBetting(), "isIframe:", isIframe);
         if (activateBettingFrameResult === true) {
           showIndicator();
         }
@@ -160,6 +195,12 @@
       case 'checkBettingTime':
         // ===== BOTH PC BETTING - Betting time check first =====
         console.log('[Content] Both PC betting time check received:', request);
+        console.log('[Content] Current frame info:', {
+          isIframe: isIframe,
+          url: window.location.href,
+          isActive: isActive,
+          canProcess: canProcessBetting()
+        });
         
         if (isActive && canProcessBetting()) {
           const checkBettingFrameResult = isBettingFrame();
@@ -209,6 +250,12 @@
       case 'placeBet':
         // ===== SINGLE PC BETTING - Direct bet placement =====
         console.log('[Content] Single PC bet command received:', request);
+        console.log('[Content] Current frame info:', {
+          isIframe: isIframe,
+          url: window.location.href,
+          isActive: isActive,
+          canProcess: canProcessBetting()
+        });
         
         // Only respond from frames that can process betting to prevent duplicate responses
         if (isActive && canProcessBetting()) {

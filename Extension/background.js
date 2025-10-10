@@ -136,6 +136,9 @@ async function disconnect() {
   pcName = null;
   updateIcon(false);
 
+  // Stop iframe monitoring
+  stopIframeMonitoring();
+
   // Inform content scripts to deactivate
   await broadcastToAllTabs({ type: 'deactivateBetAutomation' });
 
@@ -161,6 +164,9 @@ function connectWebSocket() {
     reconnectInterval = null;
     isConnected = true;
     isConnecting = false;
+
+    // Start iframe monitoring
+    startIframeMonitoring();
 
     // Reload content scripts in all tabs
     await reloadContentScripts();
@@ -218,82 +224,103 @@ function connectWebSocket() {
     } else if (data.type === 'checkBettingTime') {
       // ===== BOTH PC BETTING - Betting time check first =====
       console.log('[Background] Both PC betting time check command received:', data);
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-          chrome.tabs
-            .sendMessage(tabs[0].id, {
-              type: 'checkBettingTime',
-              bettingType: 'both' // Mark as both PC betting
-            })
-            .catch((err) => {
-              console.error('Failed to send both PC betting time check to content script:', err);
-              // Try to reinject content script and retry
-              chrome.scripting
-                .executeScript({
-                  target: { tabId: tabs[0].id },
-                  files: ['content.js'],
-                })
-                .then(() => {
-                  // Retry sending the message after a short delay
-                  setTimeout(() => {
-                    chrome.tabs.sendMessage(tabs[0].id, {
-                      type: 'checkBettingTime',
-                      bettingType: 'both'
-                    });
-                  }, 100);
-                });
-            });
-        }
+      
+      // Send to all tabs that have the extension injected
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach(tab => {
+          if (tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
+            chrome.tabs
+              .sendMessage(tab.id, {
+                type: 'checkBettingTime',
+                bettingType: 'both' // Mark as both PC betting
+              })
+              .catch((err) => {
+                console.log(`Failed to send both PC betting time check to tab ${tab.id}:`, err?.message);
+                // Try to reinject content script and retry
+                chrome.scripting
+                  .executeScript({
+                    target: { tabId: tab.id, allFrames: true },
+                    files: ['content.js'],
+                  })
+                  .then(() => {
+                    // Retry sending the message after a short delay
+                    setTimeout(() => {
+                      chrome.tabs.sendMessage(tab.id, {
+                        type: 'checkBettingTime',
+                        bettingType: 'both'
+                      }).catch(() => {
+                        console.log(`Still failed to send betting time check to tab ${tab.id} after reinjection`);
+                      });
+                    }, 100);
+                  })
+                  .catch((reinjectErr) => {
+                    console.log(`Failed to reinject into tab ${tab.id}:`, reinjectErr?.message);
+                  });
+              });
+          }
+        });
       });
     } else if (data.type === 'placeBet') {
       // ===== SINGLE PC BETTING - Direct bet placement =====
       console.log('[Background] Single PC bet command received:', data);
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-          chrome.tabs
-            .sendMessage(tabs[0].id, {
-              type: 'placeBet',
+      
+      // Send to all tabs that have the extension injected
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach(tab => {
+          if (tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
+            chrome.tabs
+              .sendMessage(tab.id, {
+                type: 'placeBet',
+                platform: data.platform,
+                amount: data.amount,
+                side: data.side,
+                bettingType: 'single' // Mark as single PC betting
+              })
+              .catch((err) => {
+                console.log(`Failed to send single PC bet to tab ${tab.id}:`, err?.message);
+                // Try to reinject content script and retry
+                chrome.scripting
+                  .executeScript({
+                    target: { tabId: tab.id, allFrames: true },
+                    files: ['content.js'],
+                  })
+                  .then(() => {
+                    // Retry sending the message after a short delay
+                    setTimeout(() => {
+                      chrome.tabs.sendMessage(tab.id, {
+                        type: 'placeBet',
+                        platform: data.platform,
+                        amount: data.amount,
+                        side: data.side,
+                        bettingType: 'single'
+                      }).catch(() => {
+                        console.log(`Still failed to send to tab ${tab.id} after reinjection`);
+                      });
+                    }, 100);
+                  })
+                  .catch((reinjectErr) => {
+                    console.log(`Failed to reinject into tab ${tab.id}:`, reinjectErr?.message);
+                  });
+              });
+          }
+        });
+      });
+    } else if (data.type === 'cancelBet') {
+      // Send cancel command to all tabs
+      console.log('[Background] Cancel bet command received:', data);
+      chrome.tabs.query({}, (tabs) => {
+        tabs.forEach(tab => {
+          if (tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
+            chrome.tabs.sendMessage(tab.id, {
+              type: 'cancelBet',
               platform: data.platform,
               amount: data.amount,
               side: data.side,
-              bettingType: 'single' // Mark as single PC betting
-            })
-            .catch((err) => {
-              console.error('Failed to send single PC bet to content script:', err);
-              // Try to reinject content script and retry
-              chrome.scripting
-                .executeScript({
-                  target: { tabId: tabs[0].id },
-                  files: ['content.js'],
-                })
-                .then(() => {
-                  // Retry sending the message after a short delay
-                  setTimeout(() => {
-                    chrome.tabs.sendMessage(tabs[0].id, {
-                      type: 'placeBet',
-                      platform: data.platform,
-                      amount: data.amount,
-                      side: data.side,
-                      bettingType: 'single'
-                    });
-                  }, 100);
-                });
+            }).catch((err) => {
+              console.log(`Failed to send cancel message to tab ${tab.id}:`, err?.message);
             });
-        }
-      });
-    } else if (data.type === 'cancelBet') {
-      // Send cancel command to active tab only (main frame)
-      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        if (tabs[0]) {
-          chrome.tabs.sendMessage(tabs[0].id, {
-            type: 'cancelBet',
-            platform: data.platform,
-            amount: data.amount,
-            side: data.side,
-          }).catch((err) => {
-            console.error('Failed to send cancel message to content script:', err);
-          });
-        }
+          }
+        });
       });
     } else if (data.type === 'error') {
       console.error('Server error:', data.message);
@@ -439,17 +466,177 @@ function startWatchdog() {
   }, WATCHDOG_INTERVAL);
 }
 
+// Enhanced iframe detection and injection
+let injectedTabs = new Set(); // Track which tabs have been injected
+let iframeCheckInterval = null;
+
 // Inject content script into any tab that finishes loading while connected
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   if (!isConnected) return;
   if (changeInfo.status === 'complete' && tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
-    chrome.scripting.executeScript({ target: { tabId, allFrames: true }, files: ['content.js'] })
-      .then(() => {
-        chrome.tabs.sendMessage(tabId, { type: 'activateBetAutomation' }).catch(() => {});
-      })
-      .catch((err) => {
-        console.log('Failed reinjecting content after update:', err?.message || err);
+    injectIntoAllFrames(tabId);
+  }
+});
+
+// Enhanced injection function that handles iframes
+async function injectIntoAllFrames(tabId) {
+  try {
+    // Inject iframe detector into main frame first
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId, frameIds: [0] },
+        files: ['iframe-detector.js']
       });
+      console.log(`Injected iframe detector into main frame of tab ${tabId}`);
+    } catch (err) {
+      console.log('Failed to inject iframe detector:', err?.message);
+    }
+    
+    // Inject content script into all frames (including iframes)
+    await chrome.scripting.executeScript({ 
+      target: { tabId, allFrames: true }, 
+      files: ['content.js'] 
+    });
+    
+    // Mark this tab as injected
+    injectedTabs.add(tabId);
+    
+    // Send activation message to all frames
+    try {
+      await chrome.tabs.sendMessage(tabId, { type: 'activateBetAutomation' });
+    } catch (err) {
+      // If sending to main frame fails, try sending to specific frames
+      console.log('Main frame message failed, trying frame-specific injection');
+    }
+    
+    console.log(`Successfully injected into tab ${tabId} (all frames)`);
+  } catch (err) {
+    console.log('Failed injecting content script:', err?.message || err);
+  }
+}
+
+// Monitor for new iframes and inject content script
+function startIframeMonitoring() {
+  if (iframeCheckInterval) return;
+  
+  iframeCheckInterval = setInterval(async () => {
+    if (!isConnected) return;
+    
+    try {
+      // Get all tabs
+      const tabs = await chrome.tabs.query({});
+      
+      for (const tab of tabs) {
+        if (!tab.url || !tab.url.startsWith('http')) continue;
+        
+        // Check if this tab needs injection
+        if (!injectedTabs.has(tab.id)) {
+          console.log(`Detected new tab ${tab.id}, injecting content script`);
+          await injectIntoAllFrames(tab.id);
+        }
+        
+        // Check for iframes within this tab
+        try {
+          const frames = await chrome.webNavigation.getAllFrames({ tabId: tab.id });
+          for (const frame of frames) {
+            if (frame.frameId !== 0 && frame.url && frame.url.startsWith('http')) {
+              // This is an iframe, ensure content script is injected
+              try {
+                await chrome.scripting.executeScript({
+                  target: { tabId: tab.id, frameIds: [frame.frameId] },
+                  files: ['content.js']
+                });
+                console.log(`Injected into iframe ${frame.frameId} in tab ${tab.id}`);
+              } catch (err) {
+                console.log(`Failed to inject into iframe ${frame.frameId}:`, err?.message);
+              }
+            }
+          }
+        } catch (err) {
+          console.log(`Failed to check frames for tab ${tab.id}:`, err?.message);
+        }
+      }
+    } catch (err) {
+      console.log('Iframe monitoring error:', err?.message || err);
+    }
+  }, 2000); // Check every 2 seconds
+}
+
+// Stop iframe monitoring
+function stopIframeMonitoring() {
+  if (iframeCheckInterval) {
+    clearInterval(iframeCheckInterval);
+    iframeCheckInterval = null;
+  }
+  injectedTabs.clear();
+}
+
+// Listen for navigation events to catch iframe loads
+chrome.webNavigation.onCompleted.addListener(async (details) => {
+  if (!isConnected) return;
+  if (details.frameId === 0) return; // Skip main frame, handled by tabs.onUpdated
+  
+  // This is an iframe navigation
+  console.log(`Iframe navigation completed: ${details.url} in tab ${details.tabId}`);
+  
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId: details.tabId, frameIds: [details.frameId] },
+      files: ['content.js']
+    });
+    
+    // Send activation message to this specific frame
+    try {
+      await chrome.tabs.sendMessage(details.tabId, { 
+        type: 'activateBetAutomation',
+        frameId: details.frameId 
+      });
+    } catch (err) {
+      console.log('Failed to send activation to iframe:', err?.message);
+    }
+    
+    console.log(`Successfully injected into iframe ${details.frameId}`);
+  } catch (err) {
+    console.log('Failed injecting into iframe:', err?.message || err);
+  }
+});
+
+// Handle frame status reports from content scripts
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  if (msg.type === 'frameStatus') {
+    console.log(`Frame status from tab ${sender.tab?.id}:`, {
+      isIframe: msg.isIframe,
+      url: msg.url,
+      hasBettingUI: msg.hasBettingUI
+    });
+    
+    // If this is an iframe with betting UI, ensure it's properly activated
+    if (msg.isIframe && msg.hasBettingUI && isConnected) {
+      console.log('Iframe with betting UI detected, ensuring activation');
+      try {
+        chrome.tabs.sendMessage(sender.tab.id, { 
+          type: 'activateBetAutomation',
+          frameId: sender.frameId 
+        });
+      } catch (err) {
+        console.log('Failed to activate iframe:', err?.message);
+      }
+    }
+  }
+  
+  if (msg.type === 'casinoIframeDetected') {
+    console.log(`Casino iframe detected in tab ${sender.tab?.id}:`, {
+      iframeId: msg.iframeId,
+      src: msg.src
+    });
+    
+    // Force injection into this tab's iframes
+    if (isConnected) {
+      console.log('Forcing injection into iframes due to casino iframe detection');
+      setTimeout(() => {
+        injectIntoAllFrames(sender.tab.id);
+      }, 2000); // Wait a bit for iframe to load
+    }
   }
 });
 

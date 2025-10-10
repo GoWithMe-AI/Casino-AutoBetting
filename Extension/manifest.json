@@ -3,7 +3,7 @@
   "name": "Bet Automation Extension",
   "version": "1.0.0",
   "description": "Automated betting extension for casino platforms",
-  "permissions": ["storage", "activeTab", "tabs", "scripting", "notifications"],
+  "permissions": ["storage", "activeTab", "tabs", "scripting", "notifications", "webNavigation"],
   "host_permissions": [
     "<all_urls>",
     "wss://god-bet.up.railway.app/*",
