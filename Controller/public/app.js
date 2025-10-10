@@ -783,7 +783,7 @@ placeBetBtn.addEventListener('click', async () => {
   };
 
   try {
-    const response = await fetch('/api/bet', {
+    const response = await fetch('/api/bet-both', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -825,11 +825,10 @@ placeBetPc1Btn.addEventListener('click', async () => {
     pc: 'PC1',
     amount: state.amount,
     side: betSide,
-    single: true,
     user: currentUser,
   };  
   try {
-    const response = await fetch('/api/bet', {
+    const response = await fetch('/api/bet-single', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -867,11 +866,10 @@ placeBetPc2Btn.addEventListener('click', async () => {
     pc: 'PC2',
     amount: state.amount,
     side: betSide,
-    single: true,
     user: currentUser,
   };
   try {
-    const response = await fetch('/api/bet', {
+    const response = await fetch('/api/bet-single', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',

@@ -370,6 +370,190 @@ wss.on('connection', (ws, req) => {
         });
       }
 
+      // Handle betting time check response
+      if (data.type === 'bettingTimeCheck') {
+        console.log(`Betting time check from ${data.pc}:`, data);
+        
+        // Store the betting time check result for this PC
+        if (!room.bettingTimeChecks) {
+          room.bettingTimeChecks = {};
+        }
+        room.bettingTimeChecks[data.pc] = {
+          result: data.result,
+          message: data.message,
+          errorType: data.errorType,
+          timestamp: Date.now()
+        };
+        
+        // Broadcast betting time check result to status listeners
+        room.statusListeners.forEach((listener) => {
+          if (listener.readyState === WebSocket.OPEN) {
+            listener.send(
+              JSON.stringify({
+                type: 'bettingTimeCheck',
+                pc: data.pc,
+                result: data.result,
+                message: data.message,
+                errorType: data.errorType,
+                timestamp: new Date().toISOString()
+              })
+            );
+          }
+        });
+
+        // ===== BOTH PC BETTING TIME CHECK HANDLER =====
+        if (room.pendingSimultaneousBet) {
+          const pendingBet = room.pendingSimultaneousBet;
+          
+          // Check if we have responses from both PCs
+          const pc1Result = room.bettingTimeChecks?.PC1;
+          const pc2Result = room.bettingTimeChecks?.PC2;
+          
+          if (pc1Result && pc2Result) {
+            console.log(`Both PC bet ${pendingBet.betId}: Both betting time checks received`);
+            
+            if (pc1Result.result === true && pc2Result.result === true) {
+              // Both PCs are ready, proceed with both PC betting
+              console.log(`Both PC bet ${pendingBet.betId}: Both PCs ready, proceeding with bets`);
+              
+              // Initialize or get accumulated bets for this room
+              if (!accumulatedBets.has(room.id)) {
+                accumulatedBets.set(room.id, {
+                  PC1: { totalAmount: 0, side: null },
+                  PC2: { totalAmount: 0, side: null }
+                });
+              }
+              
+              const accumulated = accumulatedBets.get(room.id);
+              
+              // Update accumulated amounts and sides
+              accumulated.PC1.totalAmount += (pendingBet.selectedPC === 'PC1') ? pendingBet.amount : 0;
+              accumulated.PC1.side = (pendingBet.selectedPC === 'PC1') ? pendingBet.normalizedSide : accumulated.PC1.side;
+              
+              accumulated.PC2.totalAmount += (pendingBet.selectedPC === 'PC2') ? pendingBet.amount : 0;
+              accumulated.PC2.side = (pendingBet.selectedPC === 'PC2') ? pendingBet.normalizedSide : accumulated.PC2.side;
+              
+              // For the opposite PC, add the amount and set the opposite side
+              accumulated[pendingBet.oppositePC].totalAmount += pendingBet.amount;
+              accumulated[pendingBet.oppositePC].side = pendingBet.oppositeSide;
+              
+              console.log(`Accumulated amounts: PC1=${accumulated.PC1.totalAmount} (${accumulated.PC1.side}), PC2=${accumulated.PC2.totalAmount} (${accumulated.PC2.side})`);
+              
+              // Track the bet state
+              const betState = {
+                betId: pendingBet.betId,
+                PC1: { status: 'pending', startTime: Date.now(), side: accumulated.PC1.side, totalAmount: accumulated.PC1.totalAmount },
+                PC2: { status: 'pending', startTime: Date.now(), side: accumulated.PC2.side, totalAmount: accumulated.PC2.totalAmount },
+                platform: pendingBet.platform,
+                amount: pendingBet.amount,
+                originalSide: pendingBet.normalizedSide,
+                oppositeSide: pendingBet.oppositeSide,
+              };
+              
+              activeBets.set(room.id, betState);
+              console.log(`Started tracking both PC bet ${pendingBet.betId} for room ${room.id}`);
+
+              // Send accumulated amounts to both PCs
+              const sendBetToPC = (targetPC, targetSide, targetAmount) => {
+                room.clients.forEach((client) => {
+                  if (client.pc === targetPC && client.ws.readyState === WebSocket.OPEN) {
+                    client.ws.send(
+                      JSON.stringify({
+                        type: 'placeBet',
+                        platform: pendingBet.platform,
+                        amount: targetAmount,
+                        side: targetSide,
+                      })
+                    );
+                  }
+                });
+              };
+
+              sendBetToPC(pendingBet.selectedPC, pendingBet.normalizedSide, accumulated[pendingBet.selectedPC].totalAmount);
+              sendBetToPC(pendingBet.oppositePC, pendingBet.oppositeSide, accumulated[pendingBet.oppositePC].totalAmount);
+
+              // Set up timeout to handle unresponsive PCs
+              const timeoutDuration = 10000; // 10 seconds
+              setTimeout(() => {
+                const currentBet = activeBets.get(room.id);
+                if (currentBet && currentBet.betId === pendingBet.betId) {
+                  // Check for any PCs that are still pending
+                  if (currentBet.PC1.status === 'pending') {
+                    console.log(`PC1 timed out for both PC bet ${pendingBet.betId}, cancelling PC2 if still pending`);
+                    currentBet.PC1 = { status: 'timeout', reason: 'No response within timeout period' };
+                    if (currentBet.PC2.status === 'pending') {
+                      sendCancelBet('PC2', pendingBet.platform, pendingBet.amount, currentBet.PC2.side, room);
+                      currentBet.PC2 = { status: 'cancelled', reason: 'Cancelled due to PC1 timeout' };
+                    }
+                  }
+                  if (currentBet.PC2.status === 'pending') {
+                    console.log(`PC2 timed out for both PC bet ${pendingBet.betId}, cancelling PC1 if still pending`);
+                    currentBet.PC2 = { status: 'timeout', reason: 'No response within timeout period' };
+                    if (currentBet.PC1.status === 'pending') {
+                      sendCancelBet('PC1', pendingBet.platform, pendingBet.amount, currentBet.PC1.side, room);
+                      currentBet.PC1 = { status: 'cancelled', reason: 'Cancelled due to PC2 timeout' };
+                    }
+                  }
+                  
+                  // Clean up after timeout
+                  setTimeout(() => {
+                    activeBets.delete(room.id);
+                    accumulatedBets.delete(room.id);
+                    console.log(`Cleaned up timed out both PC bet tracking and accumulated bets for room ${room.id}`);
+                  }, 2000);
+                }
+              }, timeoutDuration);
+              
+            } else {
+              // One or both PCs are not ready, send error messages
+              console.log(`Both PC bet ${pendingBet.betId}: Not all PCs ready`);
+              
+              if (pc1Result.result !== true) {
+                room.statusListeners.forEach((listener) => {
+                  if (listener.readyState === WebSocket.OPEN) {
+                    listener.send(
+                      JSON.stringify({
+                        type: 'betError',
+                        pc: 'PC1',
+                        message: pc1Result.message,
+                        platform: pendingBet.platform,
+                        amount: pendingBet.amount,
+                        side: pendingBet.normalizedSide,
+                        errorType: pc1Result.errorType,
+                        timestamp: new Date().toISOString()
+                      })
+                    );
+                  }
+                });
+              }
+              
+              if (pc2Result.result !== true) {
+                room.statusListeners.forEach((listener) => {
+                  if (listener.readyState === WebSocket.OPEN) {
+                    listener.send(
+                      JSON.stringify({
+                        type: 'betError',
+                        pc: 'PC2',
+                        message: pc2Result.message,
+                        platform: pendingBet.platform,
+                        amount: pendingBet.amount,
+                        side: pendingBet.oppositeSide,
+                        errorType: pc2Result.errorType,
+                        timestamp: new Date().toISOString()
+                      })
+                    );
+                  }
+                });
+              }
+            }
+            
+            // Clean up pending bet and betting time checks
+            delete room.pendingSimultaneousBet;
+            delete room.bettingTimeChecks;
+          }
+        }
+      }
+
       // Handle bet success
       if (data.type === 'betSuccess') {
         console.log(`Bet success from ${data.pc}:`, data);
@@ -606,148 +790,128 @@ const activeBets = new Map(); // roomId -> { betId, PC1: { status, startTime }, 
 const accumulatedBets = new Map(); // roomId -> { PC1: { totalAmount, side }, PC2: { totalAmount, side } }
 
 
-// API endpoint to send bet command
-app.post('/api/bet', (req, res) => {
-  const { platform, pc, amount, side, single = false, user } = req.body;
+// ===== SINGLE PC BETTING API =====
+app.post('/api/bet-single', (req, res) => {
+  const { platform, pc, amount, side, user } = req.body;
 
-  console.log('Bet request:', { platform, pc, amount, side, single });
+  console.log('Single PC bet request:', { platform, pc, amount, side });
 
-  const selectedPC = pc;
+  const room = getRoom(user);
   
-  if (single) {
-    // Single PC betting - no opposite side calculation needed
-    console.log(`Single PC betting: ${selectedPC} will bet on ${side}`);
-  } else {
-    // Simultaneous betting - calculate opposite side
-    const oppositePC = pc === 'PC1' ? 'PC2' : 'PC1';
-    const oppositeSide = (side === 'player' || side === 'Player') ? 'Banker' : 'Player';
-    console.log(`Simultaneous betting: ${selectedPC} will bet on ${side}, ${oppositePC} will bet on ${oppositeSide}`);
+  // Check if PC is connected
+  const isConnected = Array.from(room.clients.values()).some(client => client.pc === pc && client.ws.readyState === WebSocket.OPEN);
+  
+  if (!isConnected) {
+    return res.status(404).json({ success: false, message: `${pc} is not connected` });
   }
 
+  // Send bet directly to the selected PC (original behavior)
+  const normalizedSide = (side === 'player' || side === 'Player') ? 'Player' : 'Banker';
+  
   let sentCount = 0;
-  const room = getRoom(user);
+  room.clients.forEach((client) => {
+    if (client.pc === pc && client.ws.readyState === WebSocket.OPEN) {
+      client.ws.send(
+        JSON.stringify({
+          type: 'placeBet',
+          platform,
+          amount: amount,
+          side: normalizedSide,
+        }),
+      );
+      sentCount += 1;
+    }
+  });
 
-  // Helper to send bet to a specific PC
-  const sendBetToPC = (targetPC, targetSide, targetAmount = amount) => {
+  if (sentCount === 1) {
+    res.json({ success: true, message: `Bet command sent to ${pc}` });
+  } else {
+    res.status(404).json({ success: false, message: `${pc} is not connected` });
+  }
+});
+
+// ===== BOTH PC BETTING API =====
+app.post('/api/bet-both', (req, res) => {
+  const { platform, pc, amount, side, user } = req.body;
+
+  console.log('Both PC bet request:', { platform, pc, amount, side });
+
+  const room = getRoom(user);
+  const oppositePC = pc === 'PC1' ? 'PC2' : 'PC1';
+  const oppositeSide = (side === 'player' || side === 'Player') ? 'Banker' : 'Player';
+  const normalizedSide = (side === 'player' || side === 'Player') ? 'Player' : 'Banker';
+  
+  console.log(`Both PC betting: ${pc} will bet on ${normalizedSide}, ${oppositePC} will bet on ${oppositeSide}`);
+  
+  // Check if both PCs are connected
+  const pc1Connected = Array.from(room.clients.values()).some(client => client.pc === 'PC1' && client.ws.readyState === WebSocket.OPEN);
+  const pc2Connected = Array.from(room.clients.values()).some(client => client.pc === 'PC2' && client.ws.readyState === WebSocket.OPEN);
+  
+  if (!pc1Connected || !pc2Connected) {
+    return res.status(404).json({ success: false, message: 'One or both PCs are not connected' });
+  }
+
+  // Helper to send betting time check to a specific PC
+  const sendBettingTimeCheck = (targetPC) => {
+    let sent = false;
     room.clients.forEach((client) => {
       if (client.pc === targetPC && client.ws.readyState === WebSocket.OPEN) {
         client.ws.send(
           JSON.stringify({
-            type: 'placeBet',
-            platform,
-            amount: targetAmount,
-            side: targetSide,
-          }),
+            type: 'checkBettingTime'
+          })
         );
-        sentCount += 1;
+        sent = true;
+        console.log(`Betting time check sent to ${targetPC}`);
       }
     });
+    return sent;
   };
 
+  // Send betting time checks to both PCs
+  const pc1CheckSent = sendBettingTimeCheck('PC1');
+  const pc2CheckSent = sendBettingTimeCheck('PC2');
+  
+  if (pc1CheckSent && pc2CheckSent) {
+    // Store the pending simultaneous bet
+    const betId = `${user}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    room.pendingSimultaneousBet = {
+      betId,
+      selectedPC: pc,
+      oppositePC,
+      platform,
+      amount,
+      normalizedSide,
+      oppositeSide,
+      timestamp: Date.now()
+    };
+    
+    // Set timeout for betting time checks
+    setTimeout(() => {
+      if (room.pendingSimultaneousBet && room.pendingSimultaneousBet.betId === betId) {
+        console.log(`Both PC bet ${betId} timed out waiting for betting time checks`);
+        delete room.pendingSimultaneousBet;
+      }
+    }, 5000); // 5 second timeout for betting time checks
+    
+    res.json({ success: true, message: 'Checking betting time for both PCs...', betId });
+  } else {
+    res.status(404).json({ success: false, message: 'Could not send betting time checks to both PCs' });
+  }
+});
+
+// ===== LEGACY API (for backward compatibility) =====
+app.post('/api/bet', (req, res) => {
+  const { platform, pc, amount, side, single = false, user } = req.body;
 
   if (single) {
-    // Normalize side to capitalized format for extension compatibility
-    const normalizedSide = (side === 'player' || side === 'Player') ? 'Player' : 'Banker';
-    // Bet only on the selected PC
-    sendBetToPC(selectedPC, normalizedSide);
-
-    if (sentCount === 1) {
-      res.json({ success: true, message: `Bet command sent to ${selectedPC}` });
-    } else {
-      res.status(404).json({ success: false, message: `${selectedPC} is not connected` });
-    }
-    return;
-  }
-
-  // For simultaneous betting, calculate opposite side and PC
-  const oppositePC = pc === 'PC1' ? 'PC2' : 'PC1';
-  const oppositeSide = (side === 'player' || side === 'Player') ? 'Banker' : 'Player';
-  
-  // Normalize side to capitalized format for extension compatibility
-  const normalizedSide = (side === 'player' || side === 'Player') ? 'Player' : 'Banker';
-  
-  console.log(`Normalized sides: ${selectedPC}=${normalizedSide}, ${oppositePC}=${oppositeSide}`);
-  
-  // Initialize or get accumulated bets for this room
-  if (!accumulatedBets.has(room.id)) {
-    accumulatedBets.set(room.id, {
-      PC1: { totalAmount: 0, side: null },
-      PC2: { totalAmount: 0, side: null }
-    });
-  }
-  
-  const accumulated = accumulatedBets.get(room.id);
-  
-  // Update accumulated amounts and sides
-  accumulated.PC1.totalAmount += (selectedPC === 'PC1') ? amount : 0;
-  accumulated.PC1.side = (selectedPC === 'PC1') ? normalizedSide : accumulated.PC1.side;
-  
-  accumulated.PC2.totalAmount += (selectedPC === 'PC2') ? amount : 0;
-  accumulated.PC2.side = (selectedPC === 'PC2') ? normalizedSide : accumulated.PC2.side;
-  
-  // For the opposite PC, add the amount and set the opposite side
-  accumulated[oppositePC].totalAmount += amount;
-  accumulated[oppositePC].side = oppositeSide;
-  
-  console.log(`Accumulated amounts: PC1=${accumulated.PC1.totalAmount} (${accumulated.PC1.side}), PC2=${accumulated.PC2.totalAmount} (${accumulated.PC2.side})`);
-  
-  // For simultaneous betting, track the bet state
-  const betId = `${user}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  const betState = {
-    betId,
-    PC1: { status: 'pending', startTime: Date.now(), side: accumulated.PC1.side, totalAmount: accumulated.PC1.totalAmount },
-    PC2: { status: 'pending', startTime: Date.now(), side: accumulated.PC2.side, totalAmount: accumulated.PC2.totalAmount },
-    platform,
-    amount,
-    originalSide: normalizedSide,
-    oppositeSide: oppositeSide,
-  };
-  
-  activeBets.set(room.id, betState);
-  console.log(`Started tracking bet ${betId} for room ${room.id}`);
-
-  // Send accumulated amounts to both PCs
-  sendBetToPC(selectedPC, normalizedSide, accumulated[selectedPC].totalAmount);
-  sendBetToPC(oppositePC, oppositeSide, accumulated[oppositePC].totalAmount);
-
-  if (sentCount === 2) {
-    // Set up timeout to handle unresponsive PCs
-    const timeoutDuration = 10000; // 10 seconds
-    setTimeout(() => {
-      const currentBet = activeBets.get(room.id);
-      if (currentBet && currentBet.betId === betId) {
-        // Check for any PCs that are still pending
-        if (currentBet.PC1.status === 'pending') {
-          console.log(`PC1 timed out for bet ${betId}, cancelling PC2 if still pending`);
-          currentBet.PC1 = { status: 'timeout', reason: 'No response within timeout period' };
-          if (currentBet.PC2.status === 'pending') {
-            sendCancelBet('PC2', platform, amount, currentBet.PC2.side, room);
-            currentBet.PC2 = { status: 'cancelled', reason: 'Cancelled due to PC1 timeout' };
-          }
-        }
-        if (currentBet.PC2.status === 'pending') {
-          console.log(`PC2 timed out for bet ${betId}, cancelling PC1 if still pending`);
-          currentBet.PC2 = { status: 'timeout', reason: 'No response within timeout period' };
-          if (currentBet.PC1.status === 'pending') {
-            sendCancelBet('PC1', platform, amount, currentBet.PC1.side, room);
-            currentBet.PC1 = { status: 'cancelled', reason: 'Cancelled due to PC2 timeout' };
-          }
-        }
-        
-        // Clean up after timeout
-        setTimeout(() => {
-          activeBets.delete(room.id);
-          accumulatedBets.delete(room.id);
-          console.log(`Cleaned up timed out bet tracking and accumulated bets for room ${room.id}`);
-        }, 2000);
-      }
-    }, timeoutDuration);
-    
-    res.json({ success: true, message: 'Bet commands sent to both PCs', betId });
+    // Redirect to single PC API
+    req.body = { platform, pc, amount, side, user };
+    return app._router.handle({ ...req, url: '/api/bet-single', method: 'POST' }, res);
   } else {
-    // Clean up if we couldn't send to both PCs
-    activeBets.delete(room.id);
-    res.status(404).json({ success: false, message: 'One or both PCs are not connected' });
+    // Redirect to both PC API
+    req.body = { platform, pc, amount, side, user };
+    return app._router.handle({ ...req, url: '/api/bet-both', method: 'POST' }, res);
   }
 });
 

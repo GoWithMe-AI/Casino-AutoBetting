@@ -145,9 +145,9 @@
       case 'activateBetAutomation':
         // Always mark active on activation; processing remains gated by canProcessBetting()
         isActive = true;
-        const bettingFrameResult = isBettingFrame();
-        console.log("[BetAutomation] Activated - bettingResult:", bettingFrameResult, "isActive:", isActive, "CanProcess:", canProcessBetting());
-        if (bettingFrameResult === true) {
+        const activateBettingFrameResult = isBettingFrame();
+        console.log("[BetAutomation] Activated - bettingResult:", activateBettingFrameResult, "isActive:", isActive, "CanProcess:", canProcessBetting());
+        if (activateBettingFrameResult === true) {
           showIndicator();
         }
         // No error messages during activation - just activate silently
@@ -157,16 +157,70 @@
         hideIndicator();
         console.log("[BetAutomation] Deactivated - isActive:", isActive);
         break;
+      case 'checkBettingTime':
+        // ===== BOTH PC BETTING - Betting time check first =====
+        console.log('[Content] Both PC betting time check received:', request);
+        
+        if (isActive && canProcessBetting()) {
+          const checkBettingFrameResult = isBettingFrame();
+          if (checkBettingFrameResult === true) {
+            // We're in betting frame and it's betting time
+            const isPragmatic = document.querySelector('button[data-testid^="chip-stack-value-"]') !== null;
+            const isNewPlatform = document.querySelector('#chips .chips3d') !== null;
+            const bettingTimeResult = checkBettingTime(isPragmatic, isNewPlatform);
+            
+            if (bettingTimeResult === true) {
+              console.log('[Content] Both PC betting time confirmed');
+              chrome.runtime.sendMessage({
+                type: 'bettingTimeCheck',
+                result: true,
+                message: 'Betting time confirmed for both PC betting'
+              });
+            } else {
+              console.log('[Content] Both PC betting time not available:', bettingTimeResult);
+              chrome.runtime.sendMessage({
+                type: 'bettingTimeCheck',
+                result: false,
+                message: bettingTimeResult,
+                errorType: 'not_betting_time'
+              });
+            }
+          } else if (checkBettingFrameResult === 'not_betting_time') {
+            console.log('[Content] Both PC betting - not betting time');
+            chrome.runtime.sendMessage({
+              type: 'bettingTimeCheck',
+              result: false,
+              message: 'You are on the right tab but it is not betting time. Please wait for the betting phase.',
+              errorType: 'not_betting_time'
+            });
+          } else if (checkBettingFrameResult === 'wrong_tab') {
+            console.log('[Content] Both PC betting - wrong tab');
+            chrome.runtime.sendMessage({
+              type: 'bettingTimeCheck',
+              result: false,
+              message: 'You are not on the betting tab. Please navigate to the casino game.',
+              errorType: 'wrong_tab'
+            });
+          }
+        } else {
+          console.log('[Content] Both PC betting time check ignored - not active or cannot process betting');
+        }
+        break;
       case 'placeBet':
+        // ===== SINGLE PC BETTING - Direct bet placement =====
+        console.log('[Content] Single PC bet command received:', request);
+        
         // Only respond from frames that can process betting to prevent duplicate responses
         if (isActive && canProcessBetting()) {
           const bettingFrameResult = isBettingFrame();
           if (bettingFrameResult === true) {
+            console.log('[Content] Single PC betting - placing bet directly');
             placeBet(request.platform, request.amount, request.side);
           } else if (bettingFrameResult === 'not_betting_time') {
             const betAreasPresent = !!document.querySelector('#leftBetTextRoot, #rightBetTextRoot, [data-testid*="player"], [data-testid*="banker"], .player-bet, .banker-bet, .bet-area');
             // If there are no bet areas and we're in the top window, treat this as wrong_tab for controller clarity
             if (betAreasPresent) {
+              console.log('[Content] Single PC betting - not betting time');
               sendBetError({
                 message: 'Cannot place bet: You are on the right tab but it is not betting time. Please wait for the betting phase.',
                 platform: request.platform,
@@ -177,9 +231,10 @@
             } // if no bet areas in this frame, ignore; another frame or controller timeout will handle
           } else if (bettingFrameResult === 'wrong_tab') {
             // Do not emit wrong_tab from content script; controller/background handles site-not-found via timeout
+            console.log('[Content] Single PC betting - wrong tab (ignored)');
           }
         } else {
-          console.log('[BetAutomation] Ignoring placeBet command - not active or cannot process betting');
+          console.log('[Content] Single PC bet ignored - not active or cannot process betting');
         }
         break;
       case 'cancelBet':

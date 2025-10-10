@@ -215,8 +215,39 @@ function connectWebSocket() {
       );
 
       console.log(`This extension is assigned as: ${pcName}`);
+    } else if (data.type === 'checkBettingTime') {
+      // ===== BOTH PC BETTING - Betting time check first =====
+      console.log('[Background] Both PC betting time check command received:', data);
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        if (tabs[0]) {
+          chrome.tabs
+            .sendMessage(tabs[0].id, {
+              type: 'checkBettingTime',
+              bettingType: 'both' // Mark as both PC betting
+            })
+            .catch((err) => {
+              console.error('Failed to send both PC betting time check to content script:', err);
+              // Try to reinject content script and retry
+              chrome.scripting
+                .executeScript({
+                  target: { tabId: tabs[0].id },
+                  files: ['content.js'],
+                })
+                .then(() => {
+                  // Retry sending the message after a short delay
+                  setTimeout(() => {
+                    chrome.tabs.sendMessage(tabs[0].id, {
+                      type: 'checkBettingTime',
+                      bettingType: 'both'
+                    });
+                  }, 100);
+                });
+            });
+        }
+      });
     } else if (data.type === 'placeBet') {
-      // Forward bet command to content script (main frame only)
+      // ===== SINGLE PC BETTING - Direct bet placement =====
+      console.log('[Background] Single PC bet command received:', data);
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         if (tabs[0]) {
           chrome.tabs
@@ -225,9 +256,10 @@ function connectWebSocket() {
               platform: data.platform,
               amount: data.amount,
               side: data.side,
+              bettingType: 'single' // Mark as single PC betting
             })
             .catch((err) => {
-              console.error('Failed to send message to content script:', err);
+              console.error('Failed to send single PC bet to content script:', err);
               // Try to reinject content script and retry
               chrome.scripting
                 .executeScript({
@@ -242,6 +274,7 @@ function connectWebSocket() {
                       platform: data.platform,
                       amount: data.amount,
                       side: data.side,
+                      bettingType: 'single'
                     });
                   }, 100);
                 });
@@ -318,7 +351,20 @@ function connectWebSocket() {
 
 // Listen for messages from content script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.type === 'betSuccess') {
+  if (request.type === 'bettingTimeCheck') {
+    // Forward betting time check result to controller
+    if (ws && ws.readyState === WebSocket.OPEN && pcName) {
+      ws.send(
+        JSON.stringify({
+          type: 'bettingTimeCheck',
+          pc: pcName,
+          result: request.result,
+          message: request.message,
+          errorType: request.errorType || null,
+        }),
+      );
+    }
+  } else if (request.type === 'betSuccess') {
     // Forward success message to controller
     if (ws && ws.readyState === WebSocket.OPEN && pcName) {
       ws.send(
