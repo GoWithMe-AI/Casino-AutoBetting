@@ -372,6 +372,11 @@ function connectStatusWebSocket() {
         return;
       }
       
+      // For both PC betting time failures, always show notifications regardless of bet session state
+      if (data.errorType === 'not_betting_time' || data.errorType === 'wrong_tab') {
+        console.log(`[BetAutomation] Both PC betting time failure from ${data.pc} - showing notification`);
+      }
+      
       // Handle different error types with appropriate user-friendly messages
       let userMessage = data.message;
       let logMessage = `Bet error from ${data.pc}: ${data.message}`;
@@ -937,6 +942,12 @@ placeBetBtn.addEventListener('click', async () => {
       );
     } else {
       addLog(`Failed to place bet: ${result.message}`, 'error');
+      // Show user-friendly notification for common errors
+      if (result.message.includes('already in progress')) {
+        showErrorNotification('A bet is already in progress. Please wait for it to complete.');
+      } else {
+        showErrorNotification(`Failed to place bet: ${result.message}`);
+      }
     }
   } catch (error) {
     if (error.message.includes('Failed to fetch')) {

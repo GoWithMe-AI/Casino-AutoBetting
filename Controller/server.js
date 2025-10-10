@@ -416,25 +416,23 @@ wss.on('connection', (ws, req) => {
               // Both PCs are ready, proceed with both PC betting
               console.log(`Both PC bet ${pendingBet.betId}: Both PCs ready, proceeding with bets`);
               
-              // Initialize or get accumulated bets for this room
-              if (!accumulatedBets.has(room.id)) {
-                accumulatedBets.set(room.id, {
-                  PC1: { totalAmount: 0, side: null },
-                  PC2: { totalAmount: 0, side: null }
-                });
-              }
+              // Reset accumulated bets for this room to prevent duplicates
+              accumulatedBets.set(room.id, {
+                PC1: { totalAmount: 0, side: null },
+                PC2: { totalAmount: 0, side: null }
+              });
               
               const accumulated = accumulatedBets.get(room.id);
               
-              // Update accumulated amounts and sides
-              accumulated.PC1.totalAmount += (pendingBet.selectedPC === 'PC1') ? pendingBet.amount : 0;
-              accumulated.PC1.side = (pendingBet.selectedPC === 'PC1') ? pendingBet.normalizedSide : accumulated.PC1.side;
+              // Set amounts and sides for this specific bet (not accumulated)
+              accumulated.PC1.totalAmount = (pendingBet.selectedPC === 'PC1') ? pendingBet.amount : 0;
+              accumulated.PC1.side = (pendingBet.selectedPC === 'PC1') ? pendingBet.normalizedSide : null;
               
-              accumulated.PC2.totalAmount += (pendingBet.selectedPC === 'PC2') ? pendingBet.amount : 0;
-              accumulated.PC2.side = (pendingBet.selectedPC === 'PC2') ? pendingBet.normalizedSide : accumulated.PC2.side;
+              accumulated.PC2.totalAmount = (pendingBet.selectedPC === 'PC2') ? pendingBet.amount : 0;
+              accumulated.PC2.side = (pendingBet.selectedPC === 'PC2') ? pendingBet.normalizedSide : null;
               
-              // For the opposite PC, add the amount and set the opposite side
-              accumulated[pendingBet.oppositePC].totalAmount += pendingBet.amount;
+              // For the opposite PC, set the amount and opposite side
+              accumulated[pendingBet.oppositePC].totalAmount = pendingBet.amount;
               accumulated[pendingBet.oppositePC].side = pendingBet.oppositeSide;
               
               console.log(`Accumulated amounts: PC1=${accumulated.PC1.totalAmount} (${accumulated.PC1.side}), PC2=${accumulated.PC2.totalAmount} (${accumulated.PC2.side})`);
@@ -862,6 +860,11 @@ app.post('/api/bet-both', (req, res) => {
     return res.status(404).json({ success: false, message: 'One or both PCs are not connected' });
   }
 
+  // Check if there's already a pending simultaneous bet for this user
+  if (room.pendingSimultaneousBet) {
+    return res.status(409).json({ success: false, message: 'A bet is already in progress. Please wait for it to complete.' });
+  }
+
   // Helper to send betting time check to a specific PC
   const sendBettingTimeCheck = (targetPC) => {
     let sent = false;
@@ -902,6 +905,7 @@ app.post('/api/bet-both', (req, res) => {
       if (room.pendingSimultaneousBet && room.pendingSimultaneousBet.betId === betId) {
         console.log(`Both PC bet ${betId} timed out waiting for betting time checks`);
         delete room.pendingSimultaneousBet;
+        delete room.bettingTimeChecks;
       }
     }, 5000); // 5 second timeout for betting time checks
     
