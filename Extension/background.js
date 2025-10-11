@@ -1,7 +1,7 @@
 // Background service worker for Bet Automation Extension
 
-// const WS_URL = 'wss://www.god.bet';
-const WS_URL = 'ws://localhost:8080/';
+const WS_URL = 'wss://www.god.bet';
+// const WS_URL = 'ws://localhost:8080/'; // For local development
 // const WS_URL = 'wss://quality-crappie-painfully.ngrok-free.app';
 
 let accessToken = null;

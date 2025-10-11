@@ -62,7 +62,8 @@ app.get('/', (req, res) => {
 const server = require('http').createServer(app);
 
 // WebSocket server attached to HTTP server for Railway compatibility
-const wss = new WebSocket.Server({ port: 8080 });
+// Both HTTP and WebSocket run on the same port for Railway deployment
+const wss = new WebSocket.Server({ server });
 
 // Store connected clients
 const clients = new Map();
