@@ -481,15 +481,17 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
 // Enhanced injection function that handles iframes
 async function injectIntoAllFrames(tabId) {
   try {
-    // Inject iframe detector into main frame first
-    try {
-      await chrome.scripting.executeScript({
-        target: { tabId, frameIds: [0] },
-        files: ['iframe-detector.js']
-      });
-      console.log(`Injected iframe detector into main frame of tab ${tabId}`);
-    } catch (err) {
-      console.log('Failed to inject iframe detector:', err?.message);
+    // Only inject iframe detector if not already injected for this tab
+    if (!injectedTabs.has(tabId)) {
+      try {
+        await chrome.scripting.executeScript({
+          target: { tabId, frameIds: [0] },
+          files: ['iframe-detector.js']
+        });
+        console.log(`Injected iframe detector into main frame of tab ${tabId}`);
+      } catch (err) {
+        console.log('Failed to inject iframe detector:', err?.message);
+      }
     }
     
     // Inject content script into all frames (including iframes)
@@ -559,7 +561,7 @@ function startIframeMonitoring() {
     } catch (err) {
       console.log('Iframe monitoring error:', err?.message || err);
     }
-  }, 2000); // Check every 2 seconds
+   }, 15000); // Check every 15 seconds - much less aggressive
 }
 
 // Stop iframe monitoring
@@ -630,12 +632,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       src: msg.src
     });
     
-    // Force injection into this tab's iframes
-    if (isConnected) {
+    // Only force injection if we haven't already injected recently for this tab
+    if (isConnected && !injectedTabs.has(sender.tab.id)) {
       console.log('Forcing injection into iframes due to casino iframe detection');
       setTimeout(() => {
         injectIntoAllFrames(sender.tab.id);
       }, 2000); // Wait a bit for iframe to load
+    } else {
+      console.log('Skipping injection - already injected or not connected');
     }
   }
 });

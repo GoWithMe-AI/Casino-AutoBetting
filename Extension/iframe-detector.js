@@ -51,8 +51,8 @@
   // Run detection immediately
   detectIframes();
   
-  // Run detection periodically to catch dynamically loaded iframes
-  setInterval(detectIframes, 3000);
+  // Run detection periodically to catch dynamically loaded iframes (much less frequent)
+  setInterval(detectIframes, 30000); // Every 30 seconds instead of 3
   
   // Watch for DOM changes that might add new iframes
   const observer = new MutationObserver((mutations) => {
@@ -67,7 +67,7 @@
     
     if (hasNewIframe) {
       console.log('[IframeDetector] New iframe detected, re-scanning');
-      setTimeout(detectIframes, 1000); // Wait a bit for iframe to load
+      setTimeout(detectIframes, 5000); // Wait longer for iframe to load
     }
   });
   
