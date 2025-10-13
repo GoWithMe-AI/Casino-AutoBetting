@@ -27,7 +27,7 @@ let isConnecting = false;
 let watchdog = null;
 let watchdogInterval = null;
 let lastServerMsg = Date.now();
-const WATCHDOG_INTERVAL = 15000; // 15 seconds
+const WATCHDOG_INTERVAL = 60000; // 60 seconds - much more tolerant than server's 30s heartbeat
 
 function autoLogout(reason = 'Invalid token') {
   try {
@@ -138,6 +138,12 @@ async function disconnect() {
 
   // Stop iframe monitoring
   stopIframeMonitoring();
+
+  // Stop watchdog
+  if (watchdogInterval) {
+    clearInterval(watchdogInterval);
+    watchdogInterval = null;
+  }
 
   // Inform content scripts to deactivate
   await broadcastToAllTabs({ type: 'deactivateBetAutomation' });
@@ -344,12 +350,22 @@ function connectWebSocket() {
     }
   };
 
-  ws.onclose = () => {
-    console.log('Disconnected from controller server');
+  ws.onclose = (event) => {
+    console.log('Disconnected from controller server', {
+      code: event.code,
+      reason: event.reason,
+      wasClean: event.wasClean
+    });
     const wasConnected = isConnected;
     isConnected = false;
     isConnecting = false;
     pcName = null;
+
+    // Stop watchdog on disconnect
+    if (watchdogInterval) {
+      clearInterval(watchdogInterval);
+      watchdogInterval = null;
+    }
 
     // Update icon to not-recording.png (disconnected)
     updateIcon(false);
@@ -459,11 +475,14 @@ ensureTokenAndConnect();
 function startWatchdog() {
   if (watchdogInterval) return;
   watchdogInterval = setInterval(() => {
-    if (isConnected && Date.now() - lastServerMsg > WATCHDOG_INTERVAL) {
-      console.warn('Watchdog: No ping from server, closing socket');
+    const timeSinceLastMsg = Date.now() - lastServerMsg;
+    if (isConnected && timeSinceLastMsg > WATCHDOG_INTERVAL) {
+      console.warn(`Watchdog: No ping from server in ${Math.round(timeSinceLastMsg/1000)}s (threshold: ${WATCHDOG_INTERVAL/1000}s), closing socket`);
       if (ws) ws.close();
+    } else if (isConnected) {
+      console.log(`[Watchdog] Connection healthy - last message ${Math.round(timeSinceLastMsg/1000)}s ago`);
     }
-  }, WATCHDOG_INTERVAL);
+  }, WATCHDOG_INTERVAL / 2); // Check more frequently but with higher tolerance
 }
 
 // Enhanced iframe detection and injection
