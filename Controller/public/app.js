@@ -1,5 +1,5 @@
 // Token gate
-const storedToken = localStorage.getItem('accessToken');
+let storedToken = localStorage.getItem('accessToken');
 if (!storedToken) {
   window.location.href = 'login.html';
 }
@@ -10,10 +10,170 @@ function getUserFromToken(token) {
   } catch (e) { return null; }
 }
 
+function getTokenExpiration(token) {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]));
+    return payload.exp ? payload.exp * 1000 : null; // Convert to milliseconds
+  } catch (e) { 
+    return null; 
+  }
+}
+
+function isTokenExpiringSoon(token, minutesBeforeExpiry = 120) {
+  const expiration = getTokenExpiration(token);
+  if (!expiration) return false; // If we can't read expiration, don't assume it's expiring
+  
+  const now = Date.now();
+  const timeUntilExpiry = expiration - now;
+  
+  // If token is already expired, return true
+  if (timeUntilExpiry <= 0) return true;
+  
+  const minutesUntilExpiry = timeUntilExpiry / (1000 * 60);
+  
+  return minutesUntilExpiry <= minutesBeforeExpiry;
+}
+
+async function refreshAccessToken() {
+  const refreshToken = localStorage.getItem('refreshToken');
+  
+  if (!refreshToken) {
+    console.warn('No refresh token available, cannot refresh');
+    return false;
+  }
+  
+  try {
+    console.log('Refreshing access token...');
+    const response = await fetch('/api/refresh-token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken })
+    });
+    
+    if (!response.ok) {
+      const data = await response.json();
+      console.error('Token refresh failed:', data.message);
+      
+      // If refresh token is invalid or expired, force logout
+      if (response.status === 401 || response.status === 403) {
+        console.log('Refresh token invalid or expired, logging out...');
+        forceLogout('Session expired');
+        return false;
+      }
+      
+      return false;
+    }
+    
+    const data = await response.json();
+    
+    if (data.success && data.accessToken) {
+      console.log('Access token refreshed successfully');
+      localStorage.setItem('accessToken', data.accessToken);
+      storedToken = data.accessToken; // Update the global variable
+      
+      if (data.licenseEndDate) {
+        localStorage.setItem('licenseEndDate', data.licenseEndDate);
+      }
+      
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    return false;
+  }
+}
+
+// Start token refresh monitoring
+let tokenRefreshInterval = null;
+let lastRefreshAttempt = 0;
+const REFRESH_COOLDOWN = 10 * 60 * 1000; // 10 minutes cooldown between refresh attempts
+
+function startTokenRefreshMonitoring() {
+  // Check every 30 minutes (much less aggressive)
+  tokenRefreshInterval = setInterval(async () => {
+    const currentToken = localStorage.getItem('accessToken');
+    
+    if (!currentToken) {
+      console.log('[TokenRefresh] No access token found, stopping monitoring');
+      stopTokenRefreshMonitoring();
+      return;
+    }
+    
+    const expiration = getTokenExpiration(currentToken);
+    if (!expiration) {
+      console.log('[TokenRefresh] Cannot read token expiration, skipping check');
+      return;
+    }
+    
+    const minutesUntilExpiry = (expiration - Date.now()) / (1000 * 60);
+    
+    // Only log occasionally to reduce console spam
+    if (minutesUntilExpiry <= 180) { // Less than 3 hours
+      console.log(`[TokenRefresh] Token expires in ${Math.round(minutesUntilExpiry)} minutes`);
+    }
+    
+    // Refresh if token expires within the next 2 hours AND we haven't refreshed recently
+    const now = Date.now();
+    const timeSinceLastRefresh = now - lastRefreshAttempt;
+    
+    if (isTokenExpiringSoon(currentToken, 120) && timeSinceLastRefresh >= REFRESH_COOLDOWN) {
+      console.log('[TokenRefresh] Token expiring soon, attempting refresh...');
+      lastRefreshAttempt = now;
+      const refreshed = await refreshAccessToken();
+      
+      if (!refreshed) {
+        console.warn('[TokenRefresh] Failed to refresh token');
+      }
+    }
+  }, 30 * 60 * 1000); // Check every 30 minutes (reduced from 5 minutes)
+  
+  // Do an immediate check on page load (but only if token is actually expiring soon)
+  setTimeout(async () => {
+    const currentToken = localStorage.getItem('accessToken');
+    if (!currentToken) return;
+    
+    const expiration = getTokenExpiration(currentToken);
+    if (!expiration) {
+      console.log('[TokenRefresh] Cannot read token expiration on page load');
+      return;
+    }
+    
+    const minutesUntilExpiry = (expiration - Date.now()) / (1000 * 60);
+    console.log(`[TokenRefresh] Token valid for ${Math.round(minutesUntilExpiry)} minutes`);
+    
+    // Only refresh if token expires within 2 hours
+    if (isTokenExpiringSoon(currentToken, 120)) {
+      console.log('[TokenRefresh] Token expiring soon on page load, attempting refresh...');
+      lastRefreshAttempt = Date.now();
+      await refreshAccessToken();
+    }
+  }, 2000);
+}
+
+function stopTokenRefreshMonitoring() {
+  if (tokenRefreshInterval) {
+    clearInterval(tokenRefreshInterval);
+    tokenRefreshInterval = null;
+  }
+}
+
+// Force logout function (defined early so it can be used by token refresh)
+function forceLogout(reason = 'Session expired') {
+  console.log(`Force logout: ${reason}`);
+  localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('licenseEndDate');
+  window.location.href = 'login.html';
+}
+
+// Start monitoring immediately
+startTokenRefreshMonitoring();
+
 const currentUser = getUserFromToken(storedToken);
 if (!currentUser) {
-  localStorage.removeItem('accessToken');
-  window.location.href = 'login.html';
+  forceLogout('Invalid token');
 }
 
 // State management
@@ -124,24 +284,51 @@ async function displayLicenseInfo() {
   const licenseInfoEl = document.getElementById('license-info');
   const licenseStatusBar = document.getElementById('license-status-bar');
   
-      // Check token validity first
-    if (!isTokenValid(storedToken)) {
-      console.log('Token is invalid or expired, logging out...');
+  // Get current token (it might have been refreshed)
+  const currentToken = localStorage.getItem('accessToken');
+  
+  // Check token validity first
+  if (!currentToken || !isTokenValid(currentToken)) {
+    console.log('[License] Token is invalid or expired, attempting refresh...');
+    
+    // Try to refresh the token before logging out
+    const refreshed = await refreshAccessToken();
+    
+    if (refreshed) {
+      console.log('[License] Token refreshed successfully, retrying license check...');
+      // Retry license check with new token
+      const newToken = localStorage.getItem('accessToken');
+      if (newToken && isTokenValid(newToken)) {
+        storedToken = newToken; // Update global variable
+        // Continue with license check below
+      } else {
+        // Still invalid after refresh, logout
+        licenseInfoEl.innerHTML = `<span style="color: #f44336; background: rgba(244, 67, 54, 0.1); padding: 0.3rem 0.6rem; border-radius: 3px;">Session Expired</span>`;
+        licenseStatusBar.style.display = 'block';
+        licenseStatusBar.style.backgroundColor = '#f44336';
+        licenseStatusBar.style.color = 'white';
+        licenseStatusBar.innerHTML = `⚠️ SESSION EXPIRED - Redirecting to login...`;
+        setTimeout(() => forceLogout('Invalid token'), 1000);
+        return;
+      }
+    } else {
+      // Refresh failed, logout
       licenseInfoEl.innerHTML = `<span style="color: #f44336; background: rgba(244, 67, 54, 0.1); padding: 0.3rem 0.6rem; border-radius: 3px;">Session Expired</span>`;
       licenseStatusBar.style.display = 'block';
       licenseStatusBar.style.backgroundColor = '#f44336';
       licenseStatusBar.style.color = 'white';
       licenseStatusBar.innerHTML = `⚠️ SESSION EXPIRED - Redirecting to login...`;
-      
-      // Immediate logout for invalid token
       setTimeout(() => forceLogout('Invalid token'), 1000);
       return;
     }
+  }
   
   try {
+    // Use the current token (might have been refreshed above)
+    const tokenToUse = localStorage.getItem('accessToken');
     const response = await fetch('/api/user/license', {
       headers: {
-        'Authorization': `Bearer ${storedToken}`,
+        'Authorization': `Bearer ${tokenToUse}`,
         'Content-Type': 'application/json'
       }
     });
@@ -252,28 +439,22 @@ async function displayLicenseInfo() {
   }
 }
 
-// Force logout function
-function forceLogout(reason = 'Session expired') {
-  console.log(`Force logout: ${reason}`);
-  localStorage.removeItem('accessToken');
-  localStorage.removeItem('licenseEndDate');
-  window.location.href = 'login.html';
-}
-
 // Initialize license display immediately
 displayLicenseInfo();
 
-// Check license periodically (every 5 minutes)
-setInterval(displayLicenseInfo, 5 * 60 * 1000);
+// Check license periodically (every 30 minutes - reduced frequency)
+setInterval(displayLicenseInfo, 30 * 60 * 1000);
 
-// Also check license every minute for expired licenses
+// Check license every 5 minutes for expired licenses (reduced from 1 minute)
 setInterval(() => {
   const licenseInfoEl = document.getElementById('license-info');
+  if (!licenseInfoEl) return;
+  
   const licenseText = licenseInfoEl.textContent;
   if (licenseText.includes('Expired') || licenseText.includes('No License')) {
     displayLicenseInfo(); // Re-check immediately
   }
-}, 60 * 1000);
+}, 5 * 60 * 1000);
 
 if (currentUser==='admin'){
   adminBtn.style.display='inline-block';
@@ -1212,7 +1393,10 @@ function checkBetCompletion() {
 }
 
 logoutBtn.addEventListener('click', () => {
+  stopTokenRefreshMonitoring(); // Stop token refresh monitoring
   localStorage.removeItem('accessToken');
+  localStorage.removeItem('refreshToken');
+  localStorage.removeItem('licenseEndDate');
   window.location.href = 'login.html';
 });
 

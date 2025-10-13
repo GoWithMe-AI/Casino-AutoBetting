@@ -27,14 +27,28 @@ function authAdmin(req, res, next) {
 }
 
 const JWT_SECRET = process.env.JWT_SECRET || 'INSECURE_DEV_SECRET_CHANGE_ME';
+const REFRESH_SECRET = process.env.REFRESH_SECRET || 'INSECURE_REFRESH_SECRET_CHANGE_ME';
 
 function generateAccessToken(user) {
-  return jwt.sign({ user }, JWT_SECRET, { expiresIn: '1h' });
+  return jwt.sign({ user, type: 'access' }, JWT_SECRET, { expiresIn: '24h' }); // Extended to 24 hours
+}
+
+function generateRefreshToken(user) {
+  return jwt.sign({ user, type: 'refresh' }, REFRESH_SECRET, { expiresIn: '30d' }); // 30 days
 }
 
 function verifyToken(token) {
   try {
     return jwt.verify(token, JWT_SECRET);
+  } catch (err) {
+    return null;
+  }
+}
+
+function verifyRefreshToken(token) {
+  try {
+    const payload = jwt.verify(token, REFRESH_SECRET);
+    return payload.type === 'refresh' ? payload : null;
   } catch (err) {
     return null;
   }
@@ -1069,11 +1083,77 @@ app.post('/api/login', (req, res) => {
     });
   }
   
-  const token = generateAccessToken(username);
+  const accessToken = generateAccessToken(username);
+  const refreshToken = generateRefreshToken(username);
   return res.json({ 
     success: true, 
-    token,
+    token: accessToken,
+    accessToken: accessToken,
+    refreshToken: refreshToken,
     licenseEndDate: licenseEndDate || null
+  });
+});
+
+// Token refresh endpoint
+app.post('/api/refresh-token', (req, res) => {
+  const { refreshToken } = req.body;
+  
+  if (!refreshToken) {
+    return res.status(400).json({ 
+      success: false, 
+      message: 'Refresh token required' 
+    });
+  }
+  
+  const payload = verifyRefreshToken(refreshToken);
+  
+  if (!payload) {
+    return res.status(401).json({ 
+      success: false, 
+      message: 'Invalid or expired refresh token' 
+    });
+  }
+  
+  const username = payload.user;
+  const userRecord = USERS[username];
+  
+  if (!userRecord) {
+    return res.status(404).json({ 
+      success: false, 
+      message: 'User not found' 
+    });
+  }
+  
+  // Check license status
+  const licenseEndDate = userRecord.licenseEndDate;
+  const currentDate = new Date().toISOString().split('T')[0];
+  
+  // Check if user has no license
+  if (!licenseEndDate) {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'No license found. Please contact administrator.',
+      noLicense: true 
+    });
+  }
+  
+  // Check if license is expired
+  if (currentDate > licenseEndDate) {
+    return res.status(403).json({ 
+      success: false, 
+      message: 'License expired. Please contact administrator.',
+      licenseExpired: true 
+    });
+  }
+  
+  // Generate new access token
+  const newAccessToken = generateAccessToken(username);
+  
+  return res.json({ 
+    success: true, 
+    accessToken: newAccessToken,
+    token: newAccessToken, // For backward compatibility
+    licenseEndDate: licenseEndDate
   });
 });
 

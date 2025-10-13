@@ -31,6 +31,9 @@ document.getElementById('login-btn').addEventListener('click', async () => {
       return;
     }
     localStorage.setItem('accessToken', data.token);
+    if (data.refreshToken) {
+      localStorage.setItem('refreshToken', data.refreshToken);
+    }
     if (data.licenseEndDate) {
       localStorage.setItem('licenseEndDate', data.licenseEndDate);
     }
