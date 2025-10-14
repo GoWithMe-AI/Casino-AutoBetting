@@ -1,14 +1,18 @@
 {
   "admin": {
-    "passwordHash": "$2a$10$y3CRcYfAM4rGBWqxpGBYN.6wrpTd3rLgPV5gc73dSs/QGfha0apx2",
-    "licenseEndDate": "2099-12-31"
-  },
-  "user1": {
-    "passwordHash": "$2a$10$1kCyMb36DDLaXDitcJKdZ.ypl/.lubLRWyrYq0/XT/4HYOINVqNv2",
-    "licenseEndDate": "2025-11-08"
-  },
-  "aa01": {
-    "passwordHash": "$2a$10$18pE3bCx6ENdsft3sd0HNOWHESffqx1qVpxS0wGZ5kks76Pa6Y8GC",
-    "licenseEndDate": "2025-12-03"
-  }
+      "passwordHash": "$2a$10$y3CRcYfAM4rGBWqxpGBYN.6wrpTd3rLgPV5gc73dSs/QGfha0apx2",
+      "licenseEndDate": "2099-12-31"
+    },
+    "user1": {
+      "passwordHash": "$2a$10$1kCyMb36DDLaXDitcJKdZ.ypl/.lubLRWyrYq0/XT/4HYOINVqNv2",
+      "licenseEndDate": "2025-11-08"
+    },
+    "aa01": {
+      "passwordHash": "$2a$10$18pE3bCx6ENdsft3sd0HNOWHESffqx1qVpxS0wGZ5kks76Pa6Y8GC",
+      "licenseEndDate": "2025-12-03"
+    },
+    "ss01": {
+      "passwordHash": "$2a$10$fzbg0wuUci55vf7Zi2x1uOFjZrtapsZMJtVY7bjCO04WJpXP1gWF6",
+      "licenseEndDate": "2026-02-11"
+    }
 }
