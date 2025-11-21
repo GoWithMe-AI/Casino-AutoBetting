@@ -24,7 +24,7 @@ document.getElementById('login').addEventListener('click', async () => {
   err.textContent='';
   if(!u||!p){err.textContent='Enter credentials';return;}
   try{
-    const r=await fetch('https://www.god.bet/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
+    const r=await fetch('https://www.lucky7.casino/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
     // const r=await fetch('http://localhost:3000/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})}); // For local development
     // const r=await fetch('https://laboratorially-hypnotistic-karly.ngrok-free.dev/api/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:u,password:p})});
     const d=await r.json();

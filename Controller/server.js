@@ -207,15 +207,55 @@ wss.on('connection', (ws, req) => {
         } else if (!room.assignedPCs.has('PC2')) {
           assignedPC = 'PC2';
         } else {
-          // Both PCs are taken
-          ws.send(
-            JSON.stringify({
-              type: 'error',
-              message: 'Both PC slots are occupied' + JSON.stringify(room),
-            }),
-          );
-          ws.close();
-          return;
+          // Both PCs are taken - force logout the oldest connection
+          console.log('Both PC slots are occupied. Force logging out oldest connection...');
+          
+          // Find the oldest client (earliest connection)
+          let oldestClient = null;
+          let oldestTimestamp = Infinity;
+          
+          room.clients.forEach((client) => {
+            // Use client ID as timestamp (it's Date.now().toString())
+            const clientTimestamp = parseInt(client.id);
+            if (clientTimestamp < oldestTimestamp) {
+              oldestTimestamp = clientTimestamp;
+              oldestClient = client;
+            }
+          });
+          
+          if (oldestClient) {
+            console.log(`Force logging out ${oldestClient.pc} (oldest connection)`);
+            
+            // Free up the PC assignment
+            room.assignedPCs.delete(oldestClient.pc);
+            assignedPC = oldestClient.pc; // Take the freed PC slot
+            
+            // Send force logout message to the old client
+            if (oldestClient.ws && oldestClient.ws.readyState === WebSocket.OPEN) {
+              oldestClient.ws.send(
+                JSON.stringify({
+                  type: 'forceLogout',
+                  reason: 'Another extension has logged in and taken your slot',
+                }),
+              );
+              oldestClient.ws.close();
+            }
+            
+            // Remove the old client from the room
+            room.clients.delete(oldestClient.id);
+            
+            console.log(`Freed up ${assignedPC} for new connection`);
+          } else {
+            // Fallback: This shouldn't happen, but just in case
+            ws.send(
+              JSON.stringify({
+                type: 'error',
+                message: 'Unable to free up a slot. Please try again.',
+              }),
+            );
+            ws.close();
+            return;
+          }
         }
 
         // Mark PC as assigned; store on ws in case registration never arrives

@@ -7,7 +7,7 @@
   "host_permissions": [
     "<all_urls>",
     "wss://god-bet.up.railway.app/*",
-    "wss://www.god.bet/*"
+    "wss://www.lucky7.casino/*"
   ],
   "background": {
     "service_worker": "background.js"

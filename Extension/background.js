@@ -1,6 +1,6 @@
 // Background service worker for Bet Automation Extension
 
-const WS_URL = 'wss://www.god.bet';
+const WS_URL = 'wss://www.lucky7.casino';
 // const WS_URL = 'ws://localhost:8080/'; // For local development
 // const WS_URL = 'wss://quality-crappie-painfully.ngrok-free.app';
 
@@ -328,6 +328,22 @@ function connectWebSocket() {
           }
         });
       });
+    } else if (data.type === 'forceLogout') {
+      // Handle force logout when another extension takes this slot
+      console.warn('Force logout received from server:', data.reason);
+      
+      // Show notification to user
+      if (chrome.notifications) {
+        chrome.notifications.create({
+          type: 'basic',
+          iconUrl: 'icons/not-recording.png',
+          title: 'Bet Automation - Logged Out',
+          message: data.reason || 'Another extension has logged in and taken your slot',
+        });
+      }
+      
+      // Trigger auto logout to clear session
+      autoLogout(data.reason || 'Force logged out by server');
     } else if (data.type === 'error') {
       console.error('Server error:', data.message);
       if (data.message && /invalid token/i.test(data.message)) {
