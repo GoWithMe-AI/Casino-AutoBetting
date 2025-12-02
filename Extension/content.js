@@ -16,6 +16,11 @@
   let isIframe = window !== window.top;
   let frameId = null;
   
+  // Turn tracking for session keep-alive
+  let bettingTurnCount = 0; // Track number of betting turns
+  let lastCancelClickTurn = 0; // Track the turn when we last clicked cancel
+  let sessionKeepAliveInterval = null; // Interval for checking when to click cancel
+  
   // Log iframe status for debugging
   if (isIframe) {
     console.log('[BetAutomation] Running in iframe:', window.location.href);
@@ -185,11 +190,18 @@
         if (activateBettingFrameResult === true) {
           showIndicator();
         }
+        // Start session keep-alive monitoring
+        startSessionKeepAlive();
         // No error messages during activation - just activate silently
         break;
       case 'deactivateBetAutomation':
         isActive = false;
         hideIndicator();
+        // Stop session keep-alive monitoring
+        stopSessionKeepAlive();
+        // Reset turn counters
+        bettingTurnCount = 0;
+        lastCancelClickTurn = 0;
         console.log("[BetAutomation] Deactivated - isActive:", isActive);
         break;
       case 'checkBettingTime':
@@ -1495,6 +1507,10 @@
         side: side,
       });
 
+      // Increment betting turn counter for session keep-alive
+      bettingTurnCount++;
+      console.log(`[BetAutomation] Bet placed successfully. Turn count: ${bettingTurnCount}`);
+
       console.log('Bet placed successfully');
     } catch (error) {
       console.error('Error placing bet:', error);
@@ -1570,7 +1586,67 @@
 
   // indicator-handling moved to showIndicator / hideIndicator and only when active
 
+  // Session keep-alive functions to prevent timeout
+  function startSessionKeepAlive() {
+    // Clear any existing interval
+    stopSessionKeepAlive();
+    
+    // Check every 5 seconds if we need to click cancel during non-betting time
+    sessionKeepAliveInterval = setInterval(() => {
+      if (!isActive) {
+        return; // Don't do anything if not active
+      }
+      
+      // Only check if we're in a betting frame (not wrong tab)
+      const bettingFrameResult = isBettingFrame();
+      if (bettingFrameResult === 'wrong_tab') {
+        return; // Don't do anything if we're on the wrong tab
+      }
+      
+      // Check if it's not betting time (game in progress)
+      const isPragmatic = document.querySelector('button[data-testid^="chip-stack-value-"]') !== null;
+      const isNewPlatform = document.querySelector('#chips .chips3d') !== null;
+      const bettingTimeResult = checkBettingTime(isPragmatic, isNewPlatform);
+      
+      // Only click cancel if it's NOT betting time (game in progress)
+      if (bettingTimeResult !== true) {
+        // Check if we've had 2 turns since the last cancel click
+        const turnsSinceLastCancel = bettingTurnCount - lastCancelClickTurn;
+        
+        if (turnsSinceLastCancel >= 2) {
+          console.log(`[BetAutomation] Session keep-alive: Clicking cancel button (turn ${bettingTurnCount}, last cancel at turn ${lastCancelClickTurn})`);
+          cancelBet().then((success) => {
+            if (success) {
+              lastCancelClickTurn = bettingTurnCount;
+              console.log(`[BetAutomation] Session keep-alive: Cancel clicked successfully. Last cancel turn updated to ${lastCancelClickTurn}`);
+            } else {
+              console.log(`[BetAutomation] Session keep-alive: Cancel button not available (button not found or disabled)`);
+            }
+          }).catch((err) => {
+            console.warn(`[BetAutomation] Session keep-alive: Failed to click cancel:`, err);
+          });
+        } else {
+          console.log(`[BetAutomation] Session keep-alive: Not time yet (${turnsSinceLastCancel} turns since last cancel, need 2)`);
+        }
+      } else {
+        // It's betting time, so we don't need to click cancel
+        console.log(`[BetAutomation] Session keep-alive: It's betting time, no need to click cancel`);
+      }
+    }, 5000); // Check every 5 seconds
+    
+    console.log('[BetAutomation] Session keep-alive monitoring started');
+  }
+  
+  function stopSessionKeepAlive() {
+    if (sessionKeepAliveInterval !== null) {
+      clearInterval(sessionKeepAliveInterval);
+      sessionKeepAliveInterval = null;
+      console.log('[BetAutomation] Session keep-alive monitoring stopped');
+    }
+  }
+
   // Function to cancel the last bet (best effort - selectors may need adjustment)
+  // Returns true if cancel button was found and clicked, false otherwise
   async function cancelBet() {
     try {
       // Detect platform type
@@ -1586,14 +1662,14 @@
         
         if (!btn) {
           console.warn('Pragmatic undo button not found');
-          return;
+          return false;
         }
         
         // Wait until button becomes enabled
         const enabled = await waitUntilEnabled(btn, 2000);
         if (!enabled) {
           console.warn('Pragmatic undo button remained disabled, cannot click');
-          return;
+          return false;
         }
         
         // Click the undo button multiple times to remove all chips
@@ -1620,6 +1696,8 @@
           console.log(`Successfully cancelled bet with ${clickCount} undo clicks`);
         }
         
+        return clickCount > 0; // Return true if we clicked at least once
+        
       } else if (isNewPlatform) {
         // New platform - use cancel button
         const selector = '#cancel, .btn_cancel, button[id*="cancel"], button[class*="cancel"]';
@@ -1627,14 +1705,14 @@
         
         if (!btn) {
           console.warn('New platform cancel button not found');
-          return;
+          return false;
         }
         
         // Wait until button becomes enabled
         const enabled = await waitUntilEnabled(btn, 2000);
         if (!enabled) {
           console.warn('New platform cancel button remained disabled, cannot click');
-          return;
+          return false;
         }
         
         // Click the cancel button with visual effect
@@ -1648,14 +1726,16 @@
         });
         
         console.log('Successfully cancelled bet with cancel button');
+        return true;
         
       } else {
         console.warn('Unknown platform - cannot determine cancel button');
-        return;
+        return false;
       }
       
     } catch (err) {
       console.error('Error attempting to cancel bet:', err);
+      return false;
     }
   }
 

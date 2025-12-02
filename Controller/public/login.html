@@ -14,11 +14,23 @@
   </style>
 </head>
 <body>
+  <div style="position: fixed; top: 10px; right: 10px; z-index: 1000;">
+    <div id="language-selector" class="language-dropdown">
+      <button id="lang-selector-btn" class="lang-selector-btn">
+        <span id="lang-selector-text">English</span>
+        <span style="margin-left: 0.5rem;">▼</span>
+      </button>
+      <div id="lang-dropdown-menu" class="lang-dropdown-menu" style="display:none;">
+        <button class="lang-option" data-lang="en">English</button>
+        <button class="lang-option" data-lang="th">ไทย</button>
+      </div>
+    </div>
+  </div>
   <div class="login-container">
-    <h2>Login</h2>
-    <input type="text" id="username" placeholder="Username" />
-    <input type="password" id="password" placeholder="Password" />
-    <button id="login-btn" class="login-btn">Login</button>
+    <h2 data-translate="login">Login</h2>
+    <input type="text" id="username" data-translate-placeholder="username" placeholder="Username" />
+    <input type="password" id="password" data-translate-placeholder="password" placeholder="Password" />
+    <button id="login-btn" class="login-btn" data-translate="login">Login</button>
     <div id="error" class="error-msg"></div>
   </div>
   <script src="login.js"></script>

@@ -14,13 +14,25 @@
     
     <div class="container" style="position: relative;">
         <!-- License Info in Container Top Right -->
-        <div id="license-info" style="position: absolute; top: 10px; right: 10px; font-size: 0.9rem; padding: 0.5rem 1rem; border-radius: 4px; font-weight: bold; z-index: 1001; max-width: 300px; text-align: center;"></div>
+        <div id="license-info" style="position: absolute; top: 10px; right: 10px; font-size: 0.9rem; padding: 0.5rem 1rem; border-radius: 4px; font-weight: bold; z-index: 1001; max-width: 300px; text-align: center; margin-bottom: 0.5rem;"></div>
         
-        <div style="display:flex;justify-content:space-between;align-items:center">
-            <h1>Bet Automation Controller - Pragmatic</h1>
-            <div style="display:flex;gap:0.5rem;align-items:center">
-              <button id="admin-btn" class="btn-admin" style="display:none">Admin</button>
-              <button id="logout-btn" class="btn-danger">Logout</button>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;margin-top: 3.5rem;">
+            <h1 data-translate="controllerTitle" style="flex:1;min-width:0;margin:0;text-align:left;word-wrap:break-word;overflow-wrap:break-word;">Bet Automation Controller</h1>
+            <div style="display:flex;flex-direction:column;gap:0.5rem;align-items:flex-end;flex-shrink:0;min-width:fit-content;margin-top: 0;padding-top: 2.5rem;">
+              <div id="language-selector" class="language-dropdown">
+                <button id="lang-selector-btn" class="lang-selector-btn">
+                  <span id="lang-selector-text">English</span>
+                  <span style="margin-left: 0.5rem;">▼</span>
+                </button>
+                <div id="lang-dropdown-menu" class="lang-dropdown-menu" style="display:none;">
+                  <button class="lang-option" data-lang="en">English</button>
+                  <button class="lang-option" data-lang="th">ไทย</button>
+                </div>
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center;">
+                <button id="admin-btn" class="btn-admin" style="display:none" data-translate="admin">Admin</button>
+                <button id="logout-btn" class="btn-danger" data-translate="logout">Logout</button>
+              </div>
             </div>
         </div>
 
@@ -32,16 +44,16 @@
 
         <!-- Connection Status -->
         <div class="status-section">
-            <h2>Connection Status</h2>
+            <h2 data-translate="connectionStatus">Connection Status</h2>
             <div class="status-indicators">
                 <div class="status-item" id="pc1-item">
                     <span class="status-label" id="pc1-label">PC1:</span>
-                    <span class="status-indicator" id="pc1-status">Disconnected</span>
+                    <span class="status-indicator" id="pc1-status" data-translate="disconnected">Disconnected</span>
                 </div>
-                <button id="swap-btn" class="swap-btn" title="Swap order">&#8646;</button>
+                <button id="swap-btn" class="swap-btn" data-translate-title="swapOrder" title="Swap order">&#8646;</button>
                 <div class="status-item" id="pc2-item">
                     <span class="status-label" id="pc2-label">PC2:</span>
-                    <span class="status-indicator" id="pc2-status">Disconnected</span>
+                    <span class="status-indicator" id="pc2-status" data-translate="disconnected">Disconnected</span>
                 </div>
             </div>
         </div>
@@ -61,10 +73,10 @@
 
         <!-- Amount Selection -->
         <div class="control-section">
-            <h2>Select Amount</h2>
+            <h2 data-translate="selectAmount">Select Amount</h2>
             <div class="amount-display" id="selected-amount">--</div>
             <div class="chip-actions">
-                <button id="chip-config-btn" class="chip-config-btn">⚙️ Customize</button>
+                <button id="chip-config-btn" class="chip-config-btn" data-translate="customize">⚙️ Customize</button>
             </div>
             <div class="chip-container" id="chip-container"></div>
             <div class="chip-summary" id="chip-summary"></div>
@@ -72,11 +84,11 @@
             <!-- Chip Selector Modal -->
             <div class="modal" id="chip-selector-modal">
                 <div class="modal-content">
-                    <h3>Select Chips</h3>
+                    <h3 data-translate="selectChips">Select Chips</h3>
                     <div class="chip-checkbox-container" id="chip-checkbox-container"></div>
                     <div class="modal-buttons">
-                        <button id="chip-save-btn" class="modal-save-btn">Save</button>
-                        <button id="chip-cancel-btn" class="modal-cancel-btn">Cancel</button>
+                        <button id="chip-save-btn" class="modal-save-btn" data-translate="save">Save</button>
+                        <button id="chip-cancel-btn" class="modal-cancel-btn" data-translate="cancel">Cancel</button>
                     </div>
                 </div>
             </div>
@@ -84,26 +96,26 @@
 
         <!-- Side Selection -->
         <div class="control-section">
-            <h2>Select Side</h2>
+            <h2 data-translate="selectSide">Select Side</h2>
             <div class="side-container">
-                <button class="side-btn player" id="player-btn">Player</button>
-                <button class="side-btn banker" id="banker-btn">Banker</button>
+                <button class="side-btn player" id="player-btn" data-translate="player">Player</button>
+                <button class="side-btn banker" id="banker-btn" data-translate="banker">Banker</button>
             </div>
-            <button class="cancel-all-btn" id="cancel-all">Cancel Bet (Both PCs)</button>
+            <button class="cancel-all-btn" id="cancel-all" data-translate="cancelAllBoth">Cancel Bet (Both PCs)</button>
         </div>
 
         <!-- Bet Button -->
         <div class="control-section">
-            <button class="bet-btn" id="place-bet">Place Bet</button>
+            <button class="bet-btn" id="place-bet" data-translate="placeBet">Place Bet</button>
             <div class="bet-btn-row">
-                <button class="bet-btn" id="place-bet-pc1">Place Bet (PC1 Only)</button>
-                <button class="bet-btn" id="place-bet-pc2">Place Bet (PC2 Only)</button>
+                <button class="bet-btn" id="place-bet-pc1" data-translate="placeBetPc1Only">Place Bet (PC1 Only)</button>
+                <button class="bet-btn" id="place-bet-pc2" data-translate="placeBetPc2Only">Place Bet (PC2 Only)</button>
             </div>
         </div>
 
         <!-- Log Section -->
         <div class="log-section">
-            <h2>Activity Log</h2>
+            <h2 data-translate="activityLog">Activity Log</h2>
             <div class="log-container" id="log-container"></div>
         </div>
     </div>

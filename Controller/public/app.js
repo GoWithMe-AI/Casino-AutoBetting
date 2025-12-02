@@ -4,6 +4,227 @@ if (!storedToken) {
   window.location.href = 'login.html';
 }
 
+// Translation system
+const translations = {
+  en: {
+    // Login page
+    login: 'Login',
+    username: 'Username',
+    password: 'Password',
+    
+    // Main page
+    controllerTitle: 'Bet Automation Controller',
+    connectionStatus: 'Connection Status',
+    connected: 'Connected',
+    disconnected: 'Disconnected',
+    swapOrder: 'Swap order',
+    selectAmount: 'Select Amount',
+    customize: 'Customize',
+    selectChips: 'Select Chips',
+    save: 'Save',
+    cancel: 'Cancel',
+    selectSide: 'Select Side',
+    player: 'Player',
+    banker: 'Banker',
+    cancelAllBoth: 'Cancel Bet (Both PCs)',
+    cancelAllPc1: 'Cancel All (PC1)',
+    cancelAllPc2: 'Cancel All (PC2)',
+    cancelAllNoPcs: 'Cancel All (No PCs Connected)',
+    placeBet: 'Place Bet',
+    placeBetPc1Only: 'Place Bet (PC1 Only)',
+    placeBetPc2Only: 'Place Bet (PC2 Only)',
+    activityLog: 'Activity Log',
+    bothPcsMustBeConnected: 'Both PCs Must Be Connected',
+    selectAmount: 'Select Amount',
+    selectSide: 'Select Side',
+    logout: 'Logout',
+    admin: 'Admin',
+    selectedChips: 'Selected Chips:'
+  },
+  th: {
+    // Login page
+    login: 'เข้าสู่ระบบ',
+    username: 'ชื่อผู้ใช้งาน',
+    password: 'รหัสผ่าน',
+    
+    // Main page
+    controllerTitle: 'ตัวควบคุมระบบอัตโนมัติการเดิมพัน',
+    connectionStatus: 'สถานะการเชื่อมต่อ',
+    connected: 'เชื่อมต่อแล้ว',
+    disconnected: 'ไม่เชื่อมต่อ',
+    swapOrder: 'สลับลำดับ',
+    selectAmount: 'เลือกจำนวนเงิน',
+    customize: 'ปรับแต่ง',
+    selectChips: 'เลือกชิป',
+    save: 'บันทึก',
+    cancel: 'ยกเลิก',
+    selectSide: 'เลือกฝั่ง',
+    player: 'Player',
+    banker: 'Banker',
+    cancelAllBoth: 'ยกเลิกทั้งหมด (pc1,pc2)',
+    cancelAllPc1: 'ยกเลิกทั้งหมด (pc1)',
+    cancelAllPc2: 'ยกเลิกทั้งหมด (pc2)',
+    cancelAllNoPcs: 'ยกเลิกทั้งหมด (ไม่มีการเชื่อมทั้งหมด)',
+    placeBet: 'วางเดิมพัน',
+    placeBetPc1Only: 'วางเดิมพัน (เฉพาะpc1)',
+    placeBetPc2Only: 'วางเดิมพัน (เฉพาะpc2)',
+    activityLog: 'บันทึกกิจกรรม',
+    bothPcsMustBeConnected: 'ต้องเชื่อมต่อทั้ง2เครื่อง',
+    selectAmount: 'เลือกจำนวนเงิน',
+    selectSide: 'เลือกฝั่ง',
+    logout: 'ออกจากระบบ',
+    admin: 'ผู้ดูแลระบบ',
+    selectedChips: 'ชิปที่เลือก:'
+  }
+};
+
+// Get current language from localStorage or default to English
+let currentLanguage = localStorage.getItem('language') || 'en';
+
+// Translation function
+function t(key) {
+  return translations[currentLanguage][key] || translations.en[key] || key;
+}
+
+// Apply translations to elements with data-translate attribute
+function applyTranslations() {
+  // Translate elements with data-translate
+  document.querySelectorAll('[data-translate]').forEach(el => {
+    const key = el.getAttribute('data-translate');
+    el.textContent = t(key);
+  });
+  
+  // Translate placeholders
+  document.querySelectorAll('[data-translate-placeholder]').forEach(el => {
+    const key = el.getAttribute('data-translate-placeholder');
+    el.placeholder = t(key);
+  });
+  
+  // Translate titles
+  document.querySelectorAll('[data-translate-title]').forEach(el => {
+    const key = el.getAttribute('data-translate-title');
+    el.title = t(key);
+  });
+  
+  // Update dynamic text
+  updateDynamicTranslations();
+}
+
+// Update dynamic text that changes based on state
+function updateDynamicTranslations() {
+  // Update cancel button text based on connected PCs
+  if (cancelAllBtn) {
+    const connectedPCs = [];
+    if (state.connectedPCs.PC1) connectedPCs.push('PC1');
+    if (state.connectedPCs.PC2) connectedPCs.push('PC2');
+    
+    if (connectedPCs.length === 2) {
+      cancelAllBtn.textContent = t('cancelAllBoth');
+    } else if (connectedPCs.length === 1) {
+      if (connectedPCs[0] === 'PC1') {
+        cancelAllBtn.textContent = t('cancelAllPc1');
+      } else {
+        cancelAllBtn.textContent = t('cancelAllPc2');
+      }
+    } else {
+      cancelAllBtn.textContent = t('cancelAllNoPcs');
+    }
+  }
+  
+  // Update connection status
+  if (pc1Status) {
+    if (state.connectedPCs.PC1) {
+      pc1Status.textContent = t('connected');
+    } else {
+      pc1Status.textContent = t('disconnected');
+    }
+  }
+  
+  if (pc2Status) {
+    if (state.connectedPCs.PC2) {
+      pc2Status.textContent = t('connected');
+    } else {
+      pc2Status.textContent = t('disconnected');
+    }
+  }
+  
+  // Update place bet button
+  if (placeBetBtn) {
+    if (!state.connectedPCs.PC1 && !state.connectedPCs.PC2) {
+      placeBetBtn.textContent = t('bothPcsMustBeConnected');
+    } else if (!state.amount) {
+      placeBetBtn.textContent = t('selectAmount');
+    } else if (!state.side) {
+      placeBetBtn.textContent = t('selectSide');
+    } else {
+      placeBetBtn.textContent = t('placeBet');
+    }
+  }
+  
+  // Update chip summary
+  if (chipSummary) {
+    const selectedChips = state.selectedChips || [];
+    if (selectedChips.length > 0) {
+      const chipText = selectedChips.map(amt => formatAmount(amt)).join(', ');
+      chipSummary.textContent = `${t('selectedChips')} ${chipText}`;
+    }
+  }
+}
+
+// Initialize language selector
+function initLanguageSelector() {
+  const langSelectorBtn = document.getElementById('lang-selector-btn');
+  const langSelectorText = document.getElementById('lang-selector-text');
+  const langDropdownMenu = document.getElementById('lang-dropdown-menu');
+  const langOptions = document.querySelectorAll('.lang-option');
+  
+  if (langSelectorBtn && langSelectorText && langDropdownMenu) {
+    // Set initial text
+    updateLanguageSelectorText();
+    
+    // Toggle dropdown on button click
+    langSelectorBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isVisible = langDropdownMenu.style.display !== 'none';
+      langDropdownMenu.style.display = isVisible ? 'none' : 'block';
+    });
+    
+    // Close dropdown when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!langSelectorBtn.contains(e.target) && !langDropdownMenu.contains(e.target)) {
+        langDropdownMenu.style.display = 'none';
+      }
+    });
+    
+    // Handle language option clicks
+    langOptions.forEach(option => {
+      option.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const selectedLang = option.getAttribute('data-lang');
+        currentLanguage = selectedLang;
+        localStorage.setItem('language', selectedLang);
+        updateLanguageSelectorText();
+        langDropdownMenu.style.display = 'none';
+        applyTranslations();
+      });
+    });
+  }
+}
+
+// Update language selector button text
+function updateLanguageSelectorText() {
+  const langSelectorText = document.getElementById('lang-selector-text');
+  if (langSelectorText) {
+    langSelectorText.textContent = currentLanguage === 'en' ? 'English' : 'ไทย';
+  }
+}
+
+// Apply translations on page load
+document.addEventListener('DOMContentLoaded', () => {
+  initLanguageSelector();
+  applyTranslations();
+});
+
 function getUserFromToken(token) {
   try {
     return JSON.parse(atob(token.split('.')[1])).user;
@@ -775,21 +996,24 @@ function updateConnectionStatus(connectedPCs) {
 
   // Update PC1 status
   if (connectedPCs.PC1) {
-    pc1Status.textContent = 'Connected';
+    pc1Status.textContent = t('connected');
     pc1Status.classList.add('connected');
   } else {
-    pc1Status.textContent = 'Disconnected';
+    pc1Status.textContent = t('disconnected');
     pc1Status.classList.remove('connected');
   }
 
   // Update PC2 status
   if (connectedPCs.PC2) {
-    pc2Status.textContent = 'Connected';
+    pc2Status.textContent = t('connected');
     pc2Status.classList.add('connected');
   } else {
-    pc2Status.textContent = 'Disconnected';
+    pc2Status.textContent = t('disconnected');
     pc2Status.classList.remove('connected');
   }
+  
+  // Update dynamic translations
+  updateDynamicTranslations();
 
   // Update connection quality indicator
   updateConnectionQualityIndicator();
@@ -954,9 +1178,8 @@ function renderChips() {
   });
 
   // Update summary list
-  chipSummary.textContent = `Selected Chips: ${selectedChips
-    .map((a) => formatAmount(a))
-    .join(', ')}`;
+  const chipText = selectedChips.map((a) => formatAmount(a)).join(', ');
+  chipSummary.textContent = `${t('selectedChips')} ${chipText}`;
 }
 
 function openChipModal() {
@@ -1243,21 +1466,24 @@ function canPlaceBetSingle(pc) {
 function updateBetButton() {
   if (canPlaceBet()) {
     placeBetBtn.disabled = false;
-    placeBetBtn.textContent = 'Place Bet';
+    placeBetBtn.textContent = t('placeBet');
   } else {
     placeBetBtn.disabled = true;
 
     if (!state.amount) {
-      placeBetBtn.textContent = 'Select Amount';
+      placeBetBtn.textContent = t('selectAmount');
     } else if (!state.side) {
-      placeBetBtn.textContent = 'Select Side';
+      placeBetBtn.textContent = t('selectSide');
     } else if (!state.connectedPCs.PC1 || !state.connectedPCs.PC2) {
-      placeBetBtn.textContent = 'Both PCs Must Be Connected';
+      placeBetBtn.textContent = t('bothPcsMustBeConnected');
     }
   }
   // Update single PC bet buttons
   placeBetPc1Btn.disabled = !canPlaceBetSingle('PC1');
   placeBetPc2Btn.disabled = !canPlaceBetSingle('PC2');
+  
+  // Update dynamic translations
+  updateDynamicTranslations();
 }
 
 // Format amount for display
@@ -1353,9 +1579,15 @@ function updateCancelAllBtn() {
     const connectedPCs = [];
     if (state.connectedPCs.PC1) connectedPCs.push('PC1');
     if (state.connectedPCs.PC2) connectedPCs.push('PC2');
-    cancelAllBtn.textContent = `Cancel All (${connectedPCs.join(', ')})`;
+    if (connectedPCs.length === 2) {
+      cancelAllBtn.textContent = t('cancelAllBoth');
+    } else if (connectedPCs[0] === 'PC1') {
+      cancelAllBtn.textContent = t('cancelAllPc1');
+    } else {
+      cancelAllBtn.textContent = t('cancelAllPc2');
+    }
   } else {
-    cancelAllBtn.textContent = 'Cancel All (No PCs Connected)';
+    cancelAllBtn.textContent = t('cancelAllNoPcs');
   }
 }
 
