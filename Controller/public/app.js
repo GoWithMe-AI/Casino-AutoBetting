@@ -39,7 +39,8 @@ const translations = {
     selectSide: 'Select Side',
     logout: 'Logout',
     admin: 'Admin',
-    selectedChips: 'Selected Chips:'
+    selectedChips: 'Selected Chips:',
+    licenseValid: 'License Valid'
   },
   th: {
     // Login page
@@ -59,8 +60,8 @@ const translations = {
     save: 'บันทึก',
     cancel: 'ยกเลิก',
     selectSide: 'เลือกฝั่ง',
-    player: 'Player',
-    banker: 'Banker',
+    player: 'ผู้เล่น',
+    banker: 'เจ้ามือ',
     cancelAllBoth: 'ยกเลิกทั้งหมด (pc1,pc2)',
     cancelAllPc1: 'ยกเลิกทั้งหมด (pc1)',
     cancelAllPc2: 'ยกเลิกทั้งหมด (pc2)',
@@ -74,7 +75,8 @@ const translations = {
     selectSide: 'เลือกฝั่ง',
     logout: 'ออกจากระบบ',
     admin: 'ผู้ดูแลระบบ',
-    selectedChips: 'ชิปที่เลือก:'
+    selectedChips: 'ชิปที่เลือก:',
+    licenseValid: 'ใบอนุญาตถูกต้อง'
   }
 };
 
@@ -574,7 +576,7 @@ async function displayLicenseInfo() {
             }, 3000);
           } else {
             // Show valid license
-            licenseInfoEl.innerHTML = `<span style="color: #4caf50; background: rgba(76, 175, 80, 0.1); padding: 0.3rem 0.6rem; border-radius: 3px;">License Valid: ${data.licenseEndDate}</span>`;
+            licenseInfoEl.innerHTML = `<span style="color: #4caf50; background: rgba(76, 175, 80, 0.1); padding: 0.3rem 0.6rem; border-radius: 3px;">${t('licenseValid')}: ${data.licenseEndDate}</span>`;
             licenseStatusBar.style.display = 'none';
           }
         } else {
