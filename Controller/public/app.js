@@ -175,12 +175,16 @@ function updateDynamicTranslations() {
     }
   }
   
-  // Update chip summary
+  // Update chip summary - use global selectedChips variable (not state.selectedChips)
   if (chipSummary) {
-    const selectedChips = state.selectedChips || [];
-    if (selectedChips.length > 0) {
-      const chipText = selectedChips.map(amt => formatAmount(amt)).join(', ');
+    // Use the global selectedChips variable that's actually used by renderChips()
+    const chipsToDisplay = typeof selectedChips !== 'undefined' ? selectedChips : [];
+    if (chipsToDisplay.length > 0) {
+      const chipText = chipsToDisplay.map(amt => formatAmount(amt)).join(', ');
       chipSummary.textContent = `${t('selectedChips')} ${chipText}`;
+    } else {
+      // If no chips, clear the summary
+      chipSummary.textContent = '';
     }
   }
   
@@ -230,6 +234,11 @@ function initLanguageSelector() {
         updateLanguageSelectorText();
         langDropdownMenu.style.display = 'none';
         applyTranslations();
+        // Force update chip summary after language change
+        if (chipSummary && typeof selectedChips !== 'undefined' && selectedChips.length > 0) {
+          const chipText = selectedChips.map(amt => formatAmount(amt)).join(', ');
+          chipSummary.textContent = `${t('selectedChips')} ${chipText}`;
+        }
       });
     });
   }
