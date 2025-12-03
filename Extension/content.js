@@ -20,6 +20,10 @@
   let bettingTurnCount = 0; // Track number of betting turns
   let lastCancelClickTurn = 0; // Track the turn when we last clicked cancel
   let sessionKeepAliveInterval = null; // Interval for checking when to click cancel
+  let inactivityPopupObserver = null; // MutationObserver for inactivity popup
+  let pendingPlayerAreaClick = false; // Flag: 'next' = next betting time, 'coming' = coming betting time, false = none
+  let lastBettingTimeState = false; // Track previous betting time state to detect transitions
+  let bettingTimeCount = 0; // Count how many betting times we've seen (for "next" logic)
   
   // Log iframe status for debugging
   if (isIframe) {
@@ -192,16 +196,22 @@
         }
         // Start session keep-alive monitoring
         startSessionKeepAlive();
+        // Start observing for inactivity popup
+        startInactivityPopupObserver();
         // No error messages during activation - just activate silently
         break;
       case 'deactivateBetAutomation':
         isActive = false;
         hideIndicator();
-        // Stop session keep-alive monitoring
+        // Stop session keep-alive monitoring (includes inactivity popup observer)
         stopSessionKeepAlive();
         // Reset turn counters
         bettingTurnCount = 0;
         lastCancelClickTurn = 0;
+        // Reset pending actions
+        pendingPlayerAreaClick = false;
+        lastBettingTimeState = false;
+        bettingTimeCount = 0;
         console.log("[BetAutomation] Deactivated - isActive:", isActive);
         break;
       case 'checkBettingTime':
@@ -1586,6 +1596,121 @@
 
   // indicator-handling moved to showIndicator / hideIndicator and only when active
 
+  // Function to check for inactivity popup and click the "Check" button
+  function checkAndClickInactivityPopup() {
+    try {
+      // Look for the popup using multiple selectors
+      const popupContent = document.querySelector('[data-testid="popup-content"]');
+      const blockingPopupContent = document.querySelector('[data-testid="blocking-popup-content"]');
+      
+      if (!popupContent && !blockingPopupContent) {
+        return false; // No popup found
+      }
+      
+      // Use the popup that exists
+      const activePopup = popupContent || blockingPopupContent;
+      
+      // Check if popup is visible (not hidden)
+      const style = window.getComputedStyle(activePopup);
+      if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+        return false; // Popup is hidden
+      }
+      
+      // Check if the popup contains the inactivity message
+      const popupText = document.querySelector('[data-testid="blocking-popup-text"]');
+      if (popupText) {
+        const text = (popupText.textContent || popupText.innerText || '').trim().toLowerCase();
+        if (text.includes('paused due to inactivity') || text.includes('click ok to continue') || 
+            text.includes('inactivity') || text.includes('continue')) {
+          console.log('[BetAutomation] Inactivity popup detected, looking for Check button...');
+          
+          // Find the Check button - try multiple selectors
+          let checkButton = null;
+          
+          // Method 1: Look for button with data-testid="button" inside blocking-popup-buttons
+          const buttonsContainer = document.querySelector('[data-testid="blocking-popup-buttons"]');
+          if (buttonsContainer) {
+            checkButton = buttonsContainer.querySelector('button[data-testid="button"]');
+          }
+          
+          // Method 2: Look for button containing "check" text within the popup
+          if (!checkButton) {
+            const allButtons = activePopup.querySelectorAll('button');
+            for (const btn of allButtons) {
+              const btnText = (btn.textContent || btn.innerText || '').trim().toLowerCase();
+              if (btnText === 'check' || btnText.includes('check')) {
+                checkButton = btn;
+                break;
+              }
+            }
+          }
+          
+          // Method 3: Look for button with class mN_mO mN_mQ (from the HTML provided)
+          if (!checkButton) {
+            checkButton = activePopup.querySelector('button.mN_mO.mN_mQ');
+          }
+          
+          // Method 4: Look for any button in the buttons container
+          if (!checkButton && buttonsContainer) {
+            checkButton = buttonsContainer.querySelector('button');
+          }
+          
+          if (checkButton) {
+            // Check if button is visible and enabled
+            const btnStyle = window.getComputedStyle(checkButton);
+            if (btnStyle.display === 'none' || btnStyle.visibility === 'hidden') {
+              console.warn('[BetAutomation] Check button found but is hidden');
+              return false;
+            }
+            
+            if (checkButton.disabled || checkButton.hasAttribute('disabled')) {
+              console.warn('[BetAutomation] Check button found but is disabled');
+              return false;
+            }
+            
+            console.log('[BetAutomation] Found Check button, clicking it...');
+            simulateClick(checkButton);
+            
+            // Check if it's currently betting time
+            const isPragmatic = document.querySelector('button[data-testid^="chip-stack-value-"]') !== null;
+            const isNewPlatform = document.querySelector('#chips .chips3d') !== null;
+            const bettingTimeResult = checkBettingTime(isPragmatic, isNewPlatform);
+            const isBettingTime = bettingTimeResult === true;
+            
+            if (isBettingTime) {
+              // Popup appeared during betting time - schedule action for NEXT betting time
+              // We need to skip the current betting time and execute in the next one
+              console.log('[BetAutomation] Popup clicked during betting time - will click player area + cancel in NEXT betting time');
+              pendingPlayerAreaClick = 'next'; // Mark for next betting time
+              bettingTimeCount = 1; // Set to 1 since we're currently in betting time, will execute when count reaches 2
+            } else {
+              // Popup appeared during non-betting time - schedule action for COMING betting time
+              console.log('[BetAutomation] Popup clicked during non-betting time - will click player area + cancel in COMING betting time');
+              pendingPlayerAreaClick = 'coming'; // Mark for coming betting time
+              bettingTimeCount = 0; // Reset, will execute on first betting time
+            }
+            
+            // Send notification
+            chrome.runtime.sendMessage({
+              type: 'inactivityPopupClicked',
+              message: 'Inactivity popup Check button clicked automatically'
+            }).catch(() => {});
+            
+            return true;
+          } else {
+            console.warn('[BetAutomation] Inactivity popup detected but Check button not found');
+            return false;
+          }
+        }
+      }
+      
+      return false;
+    } catch (err) {
+      console.error('[BetAutomation] Error checking for inactivity popup:', err);
+      return false;
+    }
+  }
+
   // Session keep-alive functions to prevent timeout
   function startSessionKeepAlive() {
     // Clear any existing interval
@@ -1595,6 +1720,13 @@
     sessionKeepAliveInterval = setInterval(() => {
       if (!isActive) {
         return; // Don't do anything if not active
+      }
+      
+      // First, check for inactivity popup and click it if present (priority)
+      const popupClicked = checkAndClickInactivityPopup();
+      if (popupClicked) {
+        console.log('[BetAutomation] Session keep-alive: Inactivity popup handled');
+        return; // Don't do anything else this cycle if we clicked the popup
       }
       
       // Only check if we're in a betting frame (not wrong tab)
@@ -1607,6 +1739,53 @@
       const isPragmatic = document.querySelector('button[data-testid^="chip-stack-value-"]') !== null;
       const isNewPlatform = document.querySelector('#chips .chips3d') !== null;
       const bettingTimeResult = checkBettingTime(isPragmatic, isNewPlatform);
+      const isBettingTime = bettingTimeResult === true;
+      
+      // Detect betting time transition (non-betting -> betting)
+      const bettingTimeJustStarted = isBettingTime && !lastBettingTimeState;
+      
+      // Count betting times (for "next" logic)
+      if (bettingTimeJustStarted) {
+        bettingTimeCount++;
+        console.log(`[BetAutomation] Betting time started (count: ${bettingTimeCount})`);
+      }
+      
+      lastBettingTimeState = isBettingTime;
+      
+      // Execute pending player area + cancel action when betting time arrives
+      if (pendingPlayerAreaClick && isBettingTime) {
+        let shouldExecute = false;
+        
+        if (pendingPlayerAreaClick === 'coming') {
+          // Coming betting time: execute immediately when betting time starts
+          if (bettingTimeJustStarted) {
+            shouldExecute = true;
+            console.log('[BetAutomation] Coming betting time detected, executing player area click + cancel...');
+          }
+        } else if (pendingPlayerAreaClick === 'next') {
+          // Next betting time: execute on the second betting time (skip the current one)
+          // bettingTimeCount was set to 1 when popup was clicked during betting time
+          // So we execute when it reaches 2 (meaning we've entered a new betting time)
+          if (bettingTimeJustStarted && bettingTimeCount >= 2) {
+            shouldExecute = true;
+            console.log('[BetAutomation] Next betting time detected (count >= 2), executing player area click + cancel...');
+          }
+        }
+        
+        if (shouldExecute) {
+          clickPlayerAreaAndCancel().then((success) => {
+            if (success) {
+              console.log('[BetAutomation] Pending player area click + cancel completed');
+              pendingPlayerAreaClick = false; // Clear the flag
+              bettingTimeCount = 0; // Reset counter
+            } else {
+              console.warn('[BetAutomation] Pending player area click + cancel failed, will retry');
+            }
+          }).catch((err) => {
+            console.warn('[BetAutomation] Error executing pending player area click + cancel:', err);
+          });
+        }
+      }
       
       // Only click cancel if it's NOT betting time (game in progress)
       if (bettingTimeResult !== true) {
@@ -1642,6 +1821,106 @@
       clearInterval(sessionKeepAliveInterval);
       sessionKeepAliveInterval = null;
       console.log('[BetAutomation] Session keep-alive monitoring stopped');
+    }
+    
+    // Stop observing for inactivity popup
+    if (inactivityPopupObserver !== null) {
+      inactivityPopupObserver.disconnect();
+      inactivityPopupObserver = null;
+      console.log('[BetAutomation] Inactivity popup observer stopped');
+    }
+  }
+  
+  // Start observing for inactivity popup using MutationObserver
+  function startInactivityPopupObserver() {
+    // Stop any existing observer
+    if (inactivityPopupObserver !== null) {
+      inactivityPopupObserver.disconnect();
+      inactivityPopupObserver = null;
+    }
+    
+    // Create observer to watch for popup appearance
+    inactivityPopupObserver = new MutationObserver((mutations) => {
+      if (!isActive) {
+        return; // Don't do anything if not active
+      }
+      
+      // Check if popup appeared
+      const popupClicked = checkAndClickInactivityPopup();
+      if (popupClicked) {
+        console.log('[BetAutomation] Inactivity popup detected and clicked via MutationObserver');
+      }
+    });
+    
+    // Start observing the document body for changes
+    try {
+      inactivityPopupObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['class', 'data-testid']
+      });
+      console.log('[BetAutomation] Inactivity popup observer started');
+    } catch (err) {
+      console.warn('[BetAutomation] Failed to start inactivity popup observer:', err);
+    }
+  }
+
+  // Function to click player area once and then immediately click cancel
+  async function clickPlayerAreaAndCancel() {
+    try {
+      console.log('[BetAutomation] Executing player area click + cancel action...');
+      
+      // Detect platform type
+      const isPragmatic = document.querySelector('button[data-testid^="chip-stack-value-"]') !== null;
+      const isNewPlatform = document.querySelector('#chips .chips3d') !== null;
+      
+      // Find player area based on platform
+      let playerArea = null;
+      if (isPragmatic) {
+        playerArea = document.getElementById('leftBetTextRoot');
+      } else if (isNewPlatform) {
+        playerArea = document.getElementById('betBoxPlayer');
+      }
+      
+      if (!playerArea) {
+        console.warn('[BetAutomation] Player area not found, cannot execute action');
+        return false;
+      }
+      
+      // Check if it's betting time
+      const bettingTimeResult = checkBettingTime(isPragmatic, isNewPlatform);
+      if (bettingTimeResult !== true) {
+        console.warn('[BetAutomation] Not betting time, cannot execute player area click');
+        return false;
+      }
+      
+      // Click player area
+      console.log('[BetAutomation] Clicking player area...');
+      const clickTarget = findClickableElement(playerArea, 'Player');
+      if (clickTarget) {
+        simulateClick(clickTarget);
+      } else {
+        simulateClick(playerArea);
+      }
+      
+      // Wait a bit for the click to register
+      await sleep(300);
+      
+      // Immediately click cancel
+      console.log('[BetAutomation] Clicking cancel button...');
+      const cancelSuccess = await cancelBet();
+      
+      if (cancelSuccess) {
+        console.log('[BetAutomation] Successfully executed player area click + cancel');
+        return true;
+      } else {
+        console.warn('[BetAutomation] Player area clicked but cancel failed');
+        return false;
+      }
+    } catch (err) {
+      console.error('[BetAutomation] Error executing player area click + cancel:', err);
+      return false;
     }
   }
 

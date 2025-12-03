@@ -1,26 +1,26 @@
 {
   "admin": {
-    "passwordHash":  "$2a$10$y3CRcYfAM4rGBWqxpGBYN.6wrpTd3rLgPV5gc73dSs/QGfha0apx2",
-    "licenseEndDate":  "2099-12-31"
+    "passwordHash": "$2a$10$y3CRcYfAM4rGBWqxpGBYN.6wrpTd3rLgPV5gc73dSs/QGfha0apx2",
+    "licenseEndDate": "2099-12-31"
   },
   "user1": {
-    "passwordHash":  "$2a$10$1kCyMb36DDLaXDitcJKdZ.ypl/.lubLRWyrYq0/XT/4HYOINVqNv2",
-    "licenseEndDate":  "2025-11-08"
+    "passwordHash": "$2a$10$1kCyMb36DDLaXDitcJKdZ.ypl/.lubLRWyrYq0/XT/4HYOINVqNv2",
+    "licenseEndDate": "2025-11-08"
   },
   "ss01": {
-    "passwordHash":  "$2a$10$fzbg0wuUci55vf7Zi2x1uOFjZrtapsZMJtVY7bjCO04WJpXP1gWF6",
-    "licenseEndDate":  "2026-02-11"
+    "passwordHash": "$2a$10$fzbg0wuUci55vf7Zi2x1uOFjZrtapsZMJtVY7bjCO04WJpXP1gWF6",
+    "licenseEndDate": "2026-02-11"
   },
   "ryu0730": {
-    "passwordHash":  "$2a$10$YctwLHpBqj3B27R0eG3SROzHNv.iPrmJzWiSMz9VbSgKRN7XFqE0i",
-    "licenseEndDate":  "2026-02-27"
+    "passwordHash": "$2a$10$YctwLHpBqj3B27R0eG3SROzHNv.iPrmJzWiSMz9VbSgKRN7XFqE0i",
+    "licenseEndDate": "2026-02-27"
   },
   "as01": {
-    "passwordHash":  "$2a$10$4YcbGGQY.fBn1Zw/unOuAupUQsmx6SvWdIjD5a2igMuqwcXs5EyXa",
-    "licenseEndDate":  "2025-12-31"
+    "passwordHash": "$2a$10$4YcbGGQY.fBn1Zw/unOuAupUQsmx6SvWdIjD5a2igMuqwcXs5EyXa",
+    "licenseEndDate": "2025-12-31"
   },
   "chompoo": {
-    "passwordHash":  "$2a$10$4YcbGGQY.fBn1Zw/unOuAupUQsmx6SvWdIjD5a2igMuqwcXs5EyXa",
-    "licenseEndDate":  "2025-12-31"
+    "passwordHash": "$2a$10$4YcbGGQY.fBn1Zw/unOuAupUQsmx6SvWdIjD5a2igMuqwcXs5EyXa",
+    "licenseEndDate": "2025-12-31"
   }
 }
