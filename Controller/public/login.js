@@ -11,7 +11,9 @@ const loginTranslations = {
     password: 'Password',
     pleaseEnterCredentials: 'Please enter username and password',
     loginFailed: 'Login failed',
-    networkError: 'Network error'
+    networkError: 'Network error',
+    languageEnglish: 'English',
+    languageThai: 'Thai'
   },
   th: {
     login: 'เข้าสู่ระบบ',
@@ -19,7 +21,9 @@ const loginTranslations = {
     password: 'รหัสผ่าน',
     pleaseEnterCredentials: 'กรุณากรอกชื่อผู้ใช้งานและรหัสผ่าน',
     loginFailed: 'เข้าสู่ระบบล้มเหลว',
-    networkError: 'ข้อผิดพลาดเครือข่าย'
+    networkError: 'ข้อผิดพลาดเครือข่าย',
+    languageEnglish: 'อังกฤษ',
+    languageThai: 'ไทย'
   }
 };
 
@@ -84,12 +88,23 @@ function initLoginLanguageSelector() {
   }
 }
 
-// Update language selector button text
+// Update language selector button text and dropdown options
 function updateLoginLanguageSelectorText() {
   const langSelectorText = document.getElementById('lang-selector-text');
   if (langSelectorText) {
     langSelectorText.textContent = currentLanguage === 'en' ? 'English' : 'ไทย';
   }
+  
+  // Update dropdown option texts based on current language
+  const langOptions = document.querySelectorAll('.lang-option');
+  langOptions.forEach(option => {
+    const lang = option.getAttribute('data-lang');
+    if (lang === 'en') {
+      option.textContent = t('languageEnglish');
+    } else if (lang === 'th') {
+      option.textContent = t('languageThai');
+    }
+  });
 }
 
 // Apply translations on page load

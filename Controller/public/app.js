@@ -40,7 +40,13 @@ const translations = {
     logout: 'Logout',
     admin: 'Admin',
     selectedChips: 'Selected Chips:',
-    licenseValid: 'License Valid'
+    licenseValid: 'License Valid',
+    licenseExpired: 'License Expired',
+    noLicense: 'No License',
+    languageEnglish: 'English',
+    languageThai: 'Thai',
+    connectionGood: 'Connection Good',
+    connectionPoor: 'Connection Poor'
   },
   th: {
     // Login page
@@ -76,7 +82,13 @@ const translations = {
     logout: 'ออกจากระบบ',
     admin: 'ผู้ดูแลระบบ',
     selectedChips: 'ชิปที่เลือก:',
-    licenseValid: 'ใบอนุญาตถูกต้อง'
+    licenseValid: 'ใบอนุญาตถูกต้อง',
+    licenseExpired: 'ใบอนุญาตหมดอายุ',
+    noLicense: 'ไม่มีใบอนุญาต',
+    languageEnglish: 'อังกฤษ',
+    languageThai: 'ไทย',
+    connectionGood: 'การเชื่อมต่อดี',
+    connectionPoor: 'การเชื่อมต่อไม่ดี'
   }
 };
 
@@ -171,6 +183,16 @@ function updateDynamicTranslations() {
       chipSummary.textContent = `${t('selectedChips')} ${chipText}`;
     }
   }
+  
+  // Update license info if it exists
+  const licenseInfoEl = document.getElementById('license-info');
+  if (licenseInfoEl && licenseInfoEl.textContent) {
+    // Re-display license info to update translation
+    displayLicenseInfo();
+  }
+  
+  // Update connection quality indicator
+  updateConnectionQualityIndicator();
 }
 
 // Initialize language selector
@@ -213,12 +235,23 @@ function initLanguageSelector() {
   }
 }
 
-// Update language selector button text
+// Update language selector button text and dropdown options
 function updateLanguageSelectorText() {
   const langSelectorText = document.getElementById('lang-selector-text');
   if (langSelectorText) {
     langSelectorText.textContent = currentLanguage === 'en' ? 'English' : 'ไทย';
   }
+  
+  // Update dropdown option texts based on current language
+  const langOptions = document.querySelectorAll('.lang-option');
+  langOptions.forEach(option => {
+    const lang = option.getAttribute('data-lang');
+    if (lang === 'en') {
+      option.textContent = t('languageEnglish');
+    } else if (lang === 'th') {
+      option.textContent = t('languageThai');
+    }
+  });
 }
 
 // Apply translations on page load
@@ -563,11 +596,11 @@ async function displayLicenseInfo() {
         if (data.licenseEndDate) {
           if (data.isExpired) {
             // Show expired license prominently
-            licenseInfoEl.innerHTML = `<span style="color: #f44336; background: rgba(244, 67, 54, 0.1); padding: 0.3rem 0.6rem; border-radius: 3px;">License Expired: ${data.licenseEndDate}</span>`;
+            licenseInfoEl.innerHTML = `<span style="color: #f44336; background: rgba(244, 67, 54, 0.1); padding: 0.3rem 0.6rem; border-radius: 3px;">${t('licenseExpired')}: ${data.licenseEndDate}</span>`;
             licenseStatusBar.style.display = 'block';
             licenseStatusBar.style.backgroundColor = '#f44336';
             licenseStatusBar.style.color = 'white';
-            licenseStatusBar.innerHTML = `⚠️ LICENSE EXPIRED (${data.licenseEndDate}) - You will be logged out automatically`;
+            licenseStatusBar.innerHTML = `⚠️ ${t('licenseExpired')} (${data.licenseEndDate}) - You will be logged out automatically`;
             
             // Auto logout for expired license
             setTimeout(() => {
@@ -581,11 +614,11 @@ async function displayLicenseInfo() {
           }
         } else {
           // Show no license
-          licenseInfoEl.innerHTML = `<span style="color: #ff9800; background: rgba(255, 152, 0, 0.1); padding: 0.3rem 0.6rem; border-radius: 3px;">No License</span>`;
+          licenseInfoEl.innerHTML = `<span style="color: #ff9800; background: rgba(255, 152, 0, 0.1); padding: 0.3rem 0.6rem; border-radius: 3px;">${t('noLicense')}</span>`;
           licenseStatusBar.style.display = 'block';
           licenseStatusBar.style.backgroundColor = '#ff9800';
           licenseStatusBar.style.color = 'white';
-          licenseStatusBar.innerHTML = `⚠️ NO LICENSE FOUND - You will be logged out automatically`;
+          licenseStatusBar.innerHTML = `⚠️ ${t('noLicense')} - You will be logged out automatically`;
           
           // Auto logout for no license
           setTimeout(() => {
@@ -615,7 +648,7 @@ async function displayLicenseInfo() {
       // License issue - check if it's no license or expired
       const data = await response.json();
       if (data.noLicense) {
-        licenseInfoEl.innerHTML = `<span style="color: #ff9800; background: rgba(255, 152, 0, 0.1); padding: 0.3rem 0.6rem; border-radius: 3px;">No License</span>`;
+        licenseInfoEl.innerHTML = `<span style="color: #ff9800; background: rgba(255, 152, 0, 0.1); padding: 0.3rem 0.6rem; border-radius: 3px;">${t('noLicense')}</span>`;
         licenseStatusBar.style.display = 'block';
         licenseStatusBar.style.backgroundColor = '#ff9800';
         licenseStatusBar.style.color = 'white';
@@ -674,7 +707,9 @@ setInterval(() => {
   if (!licenseInfoEl) return;
   
   const licenseText = licenseInfoEl.textContent;
-  if (licenseText.includes('Expired') || licenseText.includes('No License')) {
+  // Check for expired or no license in both languages
+  if (licenseText.includes('Expired') || licenseText.includes('No License') || 
+      licenseText.includes('หมดอายุ') || licenseText.includes('ไม่มีใบอนุญาต')) {
     displayLicenseInfo(); // Re-check immediately
   }
 }, 5 * 60 * 1000);
@@ -1046,11 +1081,11 @@ function updateConnectionQualityIndicator() {
 
   if (statusWs && statusWs.readyState === WebSocket.OPEN) {
     if (connectionQuality === 'good') {
-      qualityIndicator.textContent = '🟢 Connection Good';
+      qualityIndicator.textContent = `🟢 ${t('connectionGood')}`;
       qualityIndicator.style.backgroundColor = '#4caf50';
       qualityIndicator.style.color = 'white';
     } else if (connectionQuality === 'poor') {
-      qualityIndicator.textContent = '🟡 Connection Poor';
+      qualityIndicator.textContent = `🟡 ${t('connectionPoor')}`;
       qualityIndicator.style.backgroundColor = '#ff9800';
       qualityIndicator.style.color = 'white';
     }
