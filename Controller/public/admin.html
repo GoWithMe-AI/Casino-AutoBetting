@@ -31,46 +31,46 @@
 </head>
 <body class="notranslate">
 <div class="container">
-  <h1>User Admin</h1>
+  <h1 data-translate="userAdmin">User Admin</h1>
   <table id="userTable">
     <thead>
       <tr>
-        <th>User</th>
-        <th>License Status</th>
-        <th>License End Date</th>
-        <th>Extend License</th>
-        <th>Login Status</th>
-        <th>Action</th>
+        <th data-translate="user">User</th>
+        <th data-translate="licenseStatus">License Status</th>
+        <th data-translate="licenseEndDate">License End Date</th>
+        <th data-translate="extendLicense">Extend License</th>
+        <th data-translate="loginStatus">Login Status</th>
+        <th data-translate="action">Action</th>
       </tr>
     </thead>
     <tbody></tbody>
   </table>
   <div class="add-box">
-    <input id="newUser" placeholder="username" />
-    <input id="newPass" placeholder="password" type="password" />
-    <button id="addBtn" class="btn-admin">Add</button>
+    <input id="newUser" data-translate-placeholder="username" placeholder="username" />
+    <input id="newPass" data-translate-placeholder="password" placeholder="password" type="password" />
+    <button id="addBtn" class="btn-admin" data-translate="add">Add</button>
   </div>
-  <h3 style="margin-top:1.5rem">Change Admin Password</h3>
+  <h3 style="margin-top:1.5rem" data-translate="changeAdminPassword">Change Admin Password</h3>
   <div class="add-box">
-    <input id="newAdminPass" type="password" placeholder="new password" />
-    <button id="changePassBtn" class="btn-danger" style="flex:1">Update</button>
+    <input id="newAdminPass" type="password" data-translate-placeholder="newPassword" placeholder="new password" />
+    <button id="changePassBtn" class="btn-danger" style="flex:1" data-translate="update">Update</button>
   </div>
   
   <div class="license-info">
-    <h4>License Management Instructions</h4>
-    <p><strong>Status Colors:</strong></p>
-    <p>🟢 <span class="license-active">Active</span> - License is valid and not expired</p>
-    <p>🔴 <span class="license-expired">Expired</span> - License has expired, user cannot login</p>
-    <p>🟡 <span class="license-none">No License</span> - User has no license assigned</p>
-    <p><strong>Login Status:</strong></p>
-    <p>🟢 <span class="login-online">Online</span> - User is currently logged in and connected</p>
-    <p>⚫ <span class="login-offline">Offline</span> - User is not currently logged in</p>
-    <p><strong>Extend License:</strong> Enter number of months and click "Extend" to add time to user's license</p>
-    <p><strong>Note:</strong> Admin user has permanent license and cannot be modified</p>
+    <h4 data-translate="licenseManagementInstructions">License Management Instructions</h4>
+    <p><strong data-translate="statusColors">Status Colors:</strong></p>
+    <p>🟢 <span class="license-active" data-translate="active">Active</span> - <span data-translate="activeDescription">License is valid and not expired</span></p>
+    <p>🔴 <span class="license-expired" data-translate="expired">Expired</span> - <span data-translate="expiredDescription">License has expired, user cannot login</span></p>
+    <p>🟡 <span class="license-none" data-translate="noLicense">No License</span> - <span data-translate="noLicenseDescription">User has no license assigned</span></p>
+    <p><strong data-translate="loginStatusTitle">Login Status:</strong></p>
+    <p>🟢 <span class="login-online" data-translate="online">Online</span> - <span data-translate="onlineDescription">User is currently logged in and connected</span></p>
+    <p>⚫ <span class="login-offline" data-translate="offline">Offline</span> - <span data-translate="offlineDescription">User is not currently logged in</span></p>
+    <p><strong data-translate="extendLicense">Extend License:</strong> <span data-translate="extendLicenseDescription">Enter number of months and click "Extend" to add time to user's license</span></p>
+    <p><strong data-translate="note">Note:</strong> <span data-translate="adminNote">Admin user has permanent license and cannot be modified</span></p>
   </div>
   <div style="display:flex;gap:0.5rem;margin-top:1rem">
-    <button id="backBtn" class="btn-admin" style="flex:1">Back</button>
-    <button id="logout" class="btn-danger" style="flex:1">Logout</button>
+    <button id="backBtn" class="btn-admin" style="flex:1" data-translate="back">Back</button>
+    <button id="logout" class="btn-danger" style="flex:1" data-translate="logout">Logout</button>
   </div>
 </div>
 <script src="admin.js"></script>
